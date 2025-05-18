@@ -45,23 +45,89 @@ class _HelpscreenState extends State<Helpscreen> {
       print('Error: ${response.statusCode}');
     }
   }
+  /*
+  flutter: Prompt: Hello world!
+  flutter: null
+  flutter: Response status code: 200
+  flutter: Response body: {"model":"qwen3:1.7b","created_at":"2025-05-18T02:24:19.612078Z","response":"\u003cthink\u003e\nOkay, the user said \"Hello world!\" so I need to respond appropriately. Let me see, they might be testing if I can recognize the greeting. I should acknowledge it and maybe add a friendly message. Let me make sure to keep it welcoming and offer assistance. Something like, \"Hello! How can I assist you today?\" That should cover it.\n\u003c/think\u003e\n\nHello! How can I assist you today? 😊","done":true,"done_reason":"stop","context":[151644,872,198,9707,1879,0,151645,198,151644,77091,198,151667,198,32313,11,279,1196,1053,330,9707,1879,8958,773,358,1184,311,5889,34901,13,6771,752,1490,11,807,2578,387,7497,421,358,646,15282,279,42113,13,358,1265,24645,432,323,7196,912,264,11657,1943,13,6771,752,1281,2704,311,2506,432,35287,323,3010,12994,13,24656,1075,11,330,9707,0,2585,646,358,7789,498,3351,7521,2938,1265,3421,432,624,151668,271,9707,0,2585,646,358,7789,498,3351,30,26525,2<…>
+  flutter: Response data: {model: qwen3:1.7b, created_at: 2025-05-18T02:24:19.612078Z, response: <think>
+  Okay, the user said "Hello world!" so I need to respond appropriately. Let me see, they might be testing if I can recognize the greeting. I should acknowledge it and maybe add a friendly message. Let me make sure to keep it welcoming and offer assistance. Something like, "Hello! How can I assist you today?" That should cover it.
+  </think>
+
+  Hello! How can I assist you today? 😊, done: true, done_reason: stop, context: [151644, 872, 198, 9707, 1879, 0, 151645, 198, 151644, 77091, 198, 151667, 198, 32313, 11, 279, 1196, 1053, 330, 9707, 1879, 8958, 773, 358, 1184, 311, 5889, 34901, 13, 6771, 752, 1490, 11, 807, 2578, 387, 7497, 421, 358, 646, 15282, 279, 42113, 13, 358, 1265, 24645, 432, 323, 7196, 912, 264, 11657, 1943, 13, 6771, 752, 1281, 2704, 311, 2506, 432, 35287, 323, 3010, 12994, 13, 24656, 1075, 11, 330, 9707, 0, 2585, 646, 358, 7789, 498, 3351, 7521, 2938, 1265, 3421, 432, 624, 151668,<…>
+  flutter: Generated text: null
+   */
+
+  // stream variant
+  Future<void> sendPromptStream(String prompt) async {
+    final uri = Uri.parse('$ollamaUrl/api/generate');
+    print('Sending request to: $uri');
+    print('Prompt: $prompt');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'model': 'qwen3:1.7b',
+        'prompt': prompt,
+        'stream': true,
+      }),
+    );
+    print('Response status code: ${response.statusCode}');
+    if (response.statusCode == 200) {
+      final stream = response.body;
+      print('Response stream: $stream');
+    } else {
+      print('Error: ${response.statusCode}');
+    }
+  }
+  /*
+  flutter: Prompt: Hello world!
+  flutter: Response status code: 200
+  flutter: Response stream: {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:37.349406Z","response":"\u003cthink\u003e","done":false}
+  {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:37.349956Z","response":"\n","done":false}
+  {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:37.358727Z","response":"Okay","done":false}
+  {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:37.38218Z","response":",","done":false}
+  {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:37.407605Z","response":" the","done":false}
+  {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:37.465172Z","response":" user","done":false}
+  {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:37.500468Z","response":" said","done":false}
+  {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:37.532573Z","response":" \"","done":false}
+  {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:37.568951Z","response":"Hello","done":false}
+  {"model":"qwen3:1.7b","created_at":"2025-05-18T02:30:38.057925Z","response":" world","done":false}
+  {"<…>
+   */
+
+  // chat variants
+  Future<void> sendChatMessage(String message) async {
+    // Design Note: to test context is understood, the messahes block should have some other older messages
+    final uri = Uri.parse('$ollamaUrl/api/chat');
+    print('Sending request to: $uri');
+    print('Message: $message');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'model': 'qwen3:1.7b',
+        'messages': [
+          {
+            'role': 'system',
+            'content': 'What would you like my code block to print?',
+          },
+          {'role': 'user', 'content': message},
+        ],
+        'stream': false,
+      }),
+    );
+    print('Response status code: ${response.statusCode}');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      print('Response data: $data');
+    } else {
+      print('Error: ${response.statusCode}');
+    }
+  }
   // =================================
 
-  final chatController = ChatController(
-    initialMessageList: Data.messageList,
-    scrollController: ScrollController(),
-    currentUser: ChatUser(
-      id: '1',
-      name: 'Flutter',
-      profilePhoto: Data.profileImage,
-    ),
-    otherUsers: [
-      ChatUser(id: '2', name: 'Simform', profilePhoto: Data.profileImage),
-      ChatUser(id: '3', name: 'Jhon', profilePhoto: Data.profileImage),
-      ChatUser(id: '4', name: 'Mike', profilePhoto: Data.profileImage),
-      ChatUser(id: '5', name: 'Rich', profilePhoto: Data.profileImage),
-    ],
-  );
+  late final chatController;
 
   void _showHideTypingIndicator() {
     chatController.setTypingIndicator = !chatController.showTypingIndicator;
@@ -126,22 +192,29 @@ class _HelpscreenState extends State<Helpscreen> {
   void initState() {
     super.initState();
     messageList = [
-      Message(
-        id: '1',
-        message: "Hi",
-        createdAt: DateTime.now(),
-        sentBy: "Flutter",
-      ),
+      Message(id: '1', message: "Hi", createdAt: DateTime.now(), sentBy: "1"),
       Message(
         id: '2',
         message: "Hello",
         createdAt: DateTime.now(),
-        sentBy: "Simform",
+        sentBy: "2",
       ),
     ];
+    chatController = ChatController(
+      initialMessageList: messageList,
+      scrollController: ScrollController(),
+      currentUser: ChatUser(
+        id: '1',
+        name: 'User',
+        profilePhoto: Data.profileImage,
+      ),
+      otherUsers: [
+        ChatUser(id: '2', name: 'Chatbot', profilePhoto: Data.profileImage),
+      ],
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      sendPrompt("Hello world!");
+      sendChatMessage("Hello world!");
     });
   }
 
@@ -199,27 +272,39 @@ class _HelpscreenState extends State<Helpscreen> {
           userStatus: "online",
           userStatusTextStyle: const TextStyle(color: Colors.grey),
           actions: [
-            IconButton(
-              onPressed: _onThemeIconTap,
-              icon: Icon(
-                isDarkTheme
-                    ? Icons.brightness_4_outlined
-                    : Icons.dark_mode_outlined,
-                color: theme.themeIconColor,
-              ),
-            ),
+            // IconButton(
+            //   onPressed: _onThemeIconTap,
+            //   icon: Icon(
+            //     isDarkTheme
+            //         ? Icons.brightness_4_outlined
+            //         : Icons.dark_mode_outlined,
+            //     color: theme.themeIconColor,
+            //   ),
+            // ),
             IconButton(
               tooltip: 'Toggle TypingIndicator',
               onPressed: _showHideTypingIndicator,
               icon: Icon(Icons.keyboard, color: theme.themeIconColor),
             ),
             IconButton(
-              tooltip: 'Simulate Message receive',
-              onPressed: receiveMessage,
-              icon: Icon(
-                Icons.supervised_user_circle,
-                color: theme.themeIconColor,
-              ),
+              tooltip: 'Change Chatbot Settings',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return ChatbotSettingsPopup(
+                      isDarkTheme: isDarkTheme,
+                      onThemeToggle: (newIsDark) {
+                        setState(() {
+                          isDarkTheme = newIsDark;
+                          theme = isDarkTheme ? DarkTheme() : LightTheme();
+                        });
+                      },
+                    );
+                  },
+                );
+              },
+              icon: Icon(Icons.tune, color: theme.themeIconColor),
             ),
           ],
         ),
@@ -382,6 +467,68 @@ class _HelpscreenState extends State<Helpscreen> {
         ),
       ),
       bottomNavigationBar: Navbar(currentIndex: 3),
+    );
+  }
+}
+
+class ChatbotSettingsPopup extends StatefulWidget {
+  ChatbotSettingsPopup({
+    super.key,
+    required this.isDarkTheme,
+    required this.onThemeToggle,
+  });
+
+  bool isDarkTheme;
+  final Function(bool) onThemeToggle;
+
+  @override
+  State<ChatbotSettingsPopup> createState() => _ChatbotSettingsPopupState();
+}
+
+class _ChatbotSettingsPopupState extends State<ChatbotSettingsPopup> {
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Chatbot Settings'),
+      content: SingleChildScrollView(
+        child: ListBody(
+          children: <Widget>[
+            const Text('Settings 1'),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Chatbot Name',
+                border: OutlineInputBorder(),
+                hintText: 'Give your chatbot a name!',
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                widget.onThemeToggle(!widget.isDarkTheme);
+
+                // change for this popup too
+                setState(() {
+                  widget.isDarkTheme = !widget.isDarkTheme;
+                });
+              },
+              icon: Icon(
+                widget.isDarkTheme
+                    ? Icons.brightness_4_outlined
+                    : Icons.dark_mode_outlined,
+                // color: theme.themeIconColor,
+              ),
+            ),
+            const Text('Settings 3'),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          child: const Text('Close'),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
     );
   }
 }
