@@ -2,7 +2,13 @@
 
 A new Flutter project.
 
-## Getting Started
+## Checklist
+- [x] Ollama chat system functional
+- [ ] Find an appropriate vision capable model
+- [ ] Implement image upload and processing
+- [ ] Figma design improvments
+- [ ] Proper logging of chat snippets
+- [ ] Hardware: order a Raspberry Pi 5 and sensors
 
 This project is a starting point for a Flutter application.
 

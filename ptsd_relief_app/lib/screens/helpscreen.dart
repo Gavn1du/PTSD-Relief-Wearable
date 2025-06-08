@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:chatview/chatview.dart';
@@ -5,6 +7,9 @@ import 'package:ptsd_relief_app/components/data.dart';
 import 'package:ptsd_relief_app/components/theme.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+// TODO: implement markdown rendering
 
 class Helpscreen extends StatefulWidget {
   const Helpscreen({super.key});
@@ -80,6 +85,51 @@ class _HelpscreenState extends State<Helpscreen> {
       print('Error: ${response.statusCode}');
     }
   }
+
+  Future<Map<String, dynamic>> sendImage(
+    String imagePath, [
+    String prompt = 'Describe this image',
+  ]) async {
+    final uri = Uri.parse('$ollamaUrl/api/chat');
+    print('Sending request to: $uri');
+    print('Image path: $imagePath');
+
+    // 1) Read & base64 encode the image
+    final bytes = await File(imagePath).readAsBytes();
+    final base64Image = base64Encode(bytes);
+    final encodedImage = 'data:image/jpeg;base64,$base64Image';
+
+    // 2) Build the JSON
+    final body = jsonEncode({
+      'model': 'gemma3:1b',
+      'stream': false, // Set to true if you want streaming
+      'messages': [
+        {
+          'role': 'user',
+          'content': prompt,
+          'images': [encodedImage],
+        },
+      ],
+    });
+
+    //3) Send the request
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+
+    print('Response status code: ${response.statusCode}');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      print('Error: ${response.statusCode}');
+      return {
+        'error': 'Failed to send image',
+        'statusCode': response.statusCode,
+      };
+    }
+  }
   /*
   flutter: Prompt: Hello world!
   flutter: Response status code: 200
@@ -97,37 +147,68 @@ class _HelpscreenState extends State<Helpscreen> {
    */
 
   // chat variants
-  Future<void> sendChatMessage(String message) async {
+  Future<Map<String, dynamic>> sendChatMessage(
+    String message, [
+    bool isImage = false,
+  ]) async {
     // Design Note: to test context is understood, the messahes block should have some other older messages
     final uri = Uri.parse('$ollamaUrl/api/chat');
     print('Sending request to: $uri');
     print('Message: $message');
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'model': 'qwen3:1.7b',
-        'messages': [
-          {
-            'role': 'system',
-            'content': 'What would you like my code block to print?',
-          },
-          {'role': 'user', 'content': message},
-        ],
-        'stream': false,
-      }),
-    );
-    print('Response status code: ${response.statusCode}');
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      print('Response data: $data');
-    } else {
-      print('Error: ${response.statusCode}');
+
+    List<Map<String, dynamic>> messages = [];
+    for (Message msg in chatController.initialMessageList) {
+      messages.add({
+        'role':
+            msg.sentBy == chatController.currentUser.id ? 'user' : 'assistant',
+        'content': msg.message,
+      });
     }
+
+    print('Messages: $messages');
+    Map<String, dynamic> data;
+    if (isImage) {
+      print('Sending image message: $message');
+      data = await sendImage(message);
+    } else {
+      print('Sending text message: $message');
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'model': 'qwen3:1.7b',
+          'messages': messages,
+          // 'messages': [
+          //   {
+          //     'role': 'system',
+          //     'content': 'What would you like my code block to print?',
+          //   },
+          //   {'role': 'user', 'content': message},
+          // ],
+          'stream': false,
+        }),
+      );
+
+      print('Response status code: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        data = jsonDecode(response.body);
+        print('Response data: $data');
+        return data;
+      } else {
+        print('Error: ${response.statusCode}');
+        return {
+          'error': 'Failed to send message',
+          'statusCode': response.statusCode,
+        };
+      }
+    }
+
+    print('Response data: $data');
+    return data;
   }
   // =================================
 
-  late final chatController;
+  late final ChatController chatController;
 
   void _showHideTypingIndicator() {
     chatController.setTypingIndicator = !chatController.showTypingIndicator;
@@ -165,15 +246,64 @@ class _HelpscreenState extends State<Helpscreen> {
         messageType: messageType,
       ),
     );
-    Future.delayed(const Duration(milliseconds: 300), () {
-      chatController.initialMessageList.last.setStatus =
-          MessageStatus.undelivered;
-    });
-    Future.delayed(const Duration(seconds: 1), () {
-      chatController.initialMessageList.last.setStatus = MessageStatus.read;
-    });
+    // Future.delayed(const Duration(milliseconds: 300), () {
+    //   chatController.initialMessageList.last.setStatus =
+    //       MessageStatus.undelivered;
+    // });
+    // Future.delayed(const Duration(seconds: 1), () {
+    //   chatController.initialMessageList.last.setStatus = MessageStatus.read;
+    // });
+
+    chatController.setTypingIndicator = true;
+
+    bool isImage = messageType == MessageType.image;
+
+    // Check if sending image or text
+    if (messageType == MessageType.image) {
+      print('Sending image message: $message');
+    } else if (messageType == MessageType.text) {
+      print('Sending text message: $message');
+    } else {
+      print('Unknown message type: $messageType');
+      return;
+    }
 
     // Send the message to the LLM server
+    sendChatMessage(message, isImage)
+        .then((response) {
+          chatController.setTypingIndicator = false;
+          if (response.containsKey('error')) {
+            print("Error: ${response['error']}");
+            return;
+          } else {
+            Map<String, dynamic> messageData = response['message'] ?? {};
+            String generatedText = messageData['content'] ?? '';
+            print('Generated text: $generatedText');
+
+            // Trim out the think segment between the <think> tags
+            generatedText =
+                generatedText
+                    .replaceAll(RegExp(r'<think>.*?</think>', dotAll: true), '')
+                    .trim();
+            print('Trimmed generated text: $generatedText');
+
+            chatController.addMessage(
+              Message(
+                id: DateTime.now().toString(),
+                message: generatedText,
+                createdAt: DateTime.now(),
+                sentBy: '2',
+                replyMessage: replyMessage,
+                messageType: messageType,
+                status: MessageStatus.delivered,
+              ),
+            );
+            // receiveMessage();
+          }
+        })
+        .catchError((error) {
+          print('Error sending message: $error');
+        });
   }
 
   void _onThemeIconTap() {
@@ -213,9 +343,9 @@ class _HelpscreenState extends State<Helpscreen> {
       ],
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      sendChatMessage("Hello world!");
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   sendChatMessage("Hello world!");
+    // });
   }
 
   @override
@@ -281,11 +411,11 @@ class _HelpscreenState extends State<Helpscreen> {
             //     color: theme.themeIconColor,
             //   ),
             // ),
-            IconButton(
-              tooltip: 'Toggle TypingIndicator',
-              onPressed: _showHideTypingIndicator,
-              icon: Icon(Icons.keyboard, color: theme.themeIconColor),
-            ),
+            // IconButton(
+            //   tooltip: 'Toggle TypingIndicator',
+            //   onPressed: _showHideTypingIndicator,
+            //   icon: Icon(Icons.keyboard, color: theme.themeIconColor),
+            // ),
             IconButton(
               tooltip: 'Change Chatbot Settings',
               onPressed: () {
@@ -321,6 +451,8 @@ class _HelpscreenState extends State<Helpscreen> {
           //   cameraIconColor: theme.cameraIconColor,
           //   galleryIconColor: theme.galleryIconColor,
           // ),
+          enableCameraImagePicker: false,
+          allowRecordingVoice: false,
           replyMessageColor: theme.replyMessageColor,
           defaultSendButtonColor: theme.sendButtonColor,
           replyDialogColor: theme.replyDialogColor,
@@ -486,6 +618,23 @@ class ChatbotSettingsPopup extends StatefulWidget {
 }
 
 class _ChatbotSettingsPopupState extends State<ChatbotSettingsPopup> {
+  bool streamingEnabled = false;
+  late SharedPreferences prefs;
+
+  // Load the streaming preference from SharedPreferences
+  Future<void> loadPreferences() async {
+    prefs = await SharedPreferences.getInstance();
+    setState(() {
+      streamingEnabled = prefs.getBool('streamingEnabled') ?? false;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadPreferences();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -493,7 +642,7 @@ class _ChatbotSettingsPopupState extends State<ChatbotSettingsPopup> {
       content: SingleChildScrollView(
         child: ListBody(
           children: <Widget>[
-            const Text('Settings 1'),
+            // const Text('Settings 1'),
             TextField(
               decoration: const InputDecoration(
                 labelText: 'Chatbot Name',
@@ -501,23 +650,43 @@ class _ChatbotSettingsPopupState extends State<ChatbotSettingsPopup> {
                 hintText: 'Give your chatbot a name!',
               ),
             ),
-            IconButton(
-              onPressed: () {
-                widget.onThemeToggle(!widget.isDarkTheme);
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Theme: ", style: TextStyle(fontSize: 16)),
+                IconButton(
+                  onPressed: () {
+                    widget.onThemeToggle(!widget.isDarkTheme);
 
-                // change for this popup too
-                setState(() {
-                  widget.isDarkTheme = !widget.isDarkTheme;
-                });
-              },
-              icon: Icon(
-                widget.isDarkTheme
-                    ? Icons.brightness_4_outlined
-                    : Icons.dark_mode_outlined,
-                // color: theme.themeIconColor,
-              ),
+                    // change for this popup too
+                    setState(() {
+                      widget.isDarkTheme = !widget.isDarkTheme;
+                    });
+                  },
+                  icon: Icon(
+                    widget.isDarkTheme
+                        ? Icons.brightness_4_outlined
+                        : Icons.dark_mode_outlined,
+                    // color: theme.themeIconColor,
+                  ),
+                ),
+              ],
             ),
-            const Text('Settings 3'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Streaming: ", style: TextStyle(fontSize: 16)),
+                Switch.adaptive(
+                  value: streamingEnabled,
+                  onChanged: (value) {
+                    setState(() {
+                      streamingEnabled = value;
+                      prefs.setBool('streamingEnabled', value);
+                    });
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),
