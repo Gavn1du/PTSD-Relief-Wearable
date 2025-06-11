@@ -1,11 +1,15 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:chatview/chatview.dart';
 import 'package:ptsd_relief_app/components/data.dart';
 import 'package:ptsd_relief_app/components/theme.dart';
 import 'dart:convert';
+import 'package:ptsd_relief_app/size_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,6 +26,8 @@ class _HelpscreenState extends State<Helpscreen> {
   late List<Message> messageList;
   AppTheme theme = LightTheme();
   bool isDarkTheme = false;
+
+  String? pendingImagePath;
 
   // ===== OLLAMA TEST FUNCTIONS =====
   String ollamaUrl = "http://localhost:11434";
@@ -86,6 +92,44 @@ class _HelpscreenState extends State<Helpscreen> {
     }
   }
 
+  Future<Uint8List> convertToPngBytes(File file) async {
+    final bytes = await file.readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final ui.Image image = frame.image;
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) {
+      throw Exception('Failed to convert image to PNG bytes');
+    }
+    return byteData.buffer.asUint8List();
+  }
+
+  Future<void> testSendAssetImage() async {
+    final ByteData data = await rootBundle.load('assets/testpng.png');
+    final Uint8List bytes = data.buffer.asUint8List();
+    final String b64Image = base64Encode(bytes);
+    final String uri = 'data:image/png;base64,$b64Image';
+    print('Sending request to: $uri');
+    print('Image data length: ${bytes.length} bytes');
+    final response = await http.post(
+      Uri.parse('$ollamaUrl/api/chat'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'model': 'qwen2.5vl:3b',
+        'stream': false, // Set to true if you want streaming
+        'messages': [
+          {
+            'role': 'user',
+            'content': 'Describe this image',
+            'images': [b64Image],
+          },
+        ],
+      }),
+    );
+    print('TEST Response status code: ${response.statusCode}');
+    print('TEST Response body: ${response.body}');
+  }
+
   Future<Map<String, dynamic>> sendImage(
     String imagePath, [
     String prompt = 'Describe this image',
@@ -95,19 +139,18 @@ class _HelpscreenState extends State<Helpscreen> {
     print('Image path: $imagePath');
 
     // 1) Read & base64 encode the image
-    final bytes = await File(imagePath).readAsBytes();
+    final bytes = await convertToPngBytes(File(imagePath));
     final base64Image = base64Encode(bytes);
-    final encodedImage = 'data:image/jpeg;base64,$base64Image';
 
     // 2) Build the JSON
     final body = jsonEncode({
-      'model': 'gemma3:1b',
+      'model': 'qwen2.5vl:3b',
       'stream': false, // Set to true if you want streaming
       'messages': [
         {
           'role': 'user',
           'content': prompt,
-          'images': [encodedImage],
+          'images': [base64Image],
         },
       ],
     });
@@ -169,37 +212,56 @@ class _HelpscreenState extends State<Helpscreen> {
     Map<String, dynamic> data;
     if (isImage) {
       print('Sending image message: $message');
-      data = await sendImage(message);
+
+      // Intercept the image path here as we will wait for the prompt before sending
+      setState(() {
+        pendingImagePath = message; // message is the image path
+      });
+      data = {
+        'status': 'pending',
+        'message': 'Image message is pending',
+        'statusCode': 200,
+      };
+      // data = await sendImage(message);
     } else {
       print('Sending text message: $message');
-      final response = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'model': 'qwen3:1.7b',
-          'messages': messages,
-          // 'messages': [
-          //   {
-          //     'role': 'system',
-          //     'content': 'What would you like my code block to print?',
-          //   },
-          //   {'role': 'user', 'content': message},
-          // ],
-          'stream': false,
-        }),
-      );
 
-      print('Response status code: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        data = jsonDecode(response.body);
-        print('Response data: $data');
-        return data;
+      if (pendingImagePath != null) {
+        data = await sendImage(pendingImagePath!, message);
+        setState(() {
+          pendingImagePath = null; // Clear the pending image path
+        });
       } else {
-        print('Error: ${response.statusCode}');
-        return {
-          'error': 'Failed to send message',
-          'statusCode': response.statusCode,
-        };
+        final response = await http.post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'model': 'qwen3:1.7b',
+            // 'model': 'qwen2.5vl:3b',
+            'messages': messages,
+            // 'messages': [
+            //   {
+            //     'role': 'system',
+            //     'content': 'What would you like my code block to print?',
+            //   },
+            //   {'role': 'user', 'content': message},
+            // ],
+            'stream': false,
+          }),
+        );
+
+        print('Response status code: ${response.statusCode}');
+        if (response.statusCode == 200) {
+          data = jsonDecode(response.body);
+          print('Response data: $data');
+          return data;
+        } else {
+          print('Error: ${response.statusCode}');
+          return {
+            'error': 'Failed to send message',
+            'statusCode': response.statusCode,
+          };
+        }
       }
     }
 
@@ -276,6 +338,14 @@ class _HelpscreenState extends State<Helpscreen> {
             print("Error: ${response['error']}");
             return;
           } else {
+            if (response['status'] == 'pending') {
+              print('Image message is pending, waiting for prompt...');
+              // setState(() {
+              //   pendingImagePath = message; // Store the image path
+              // });
+              return;
+            }
+
             Map<String, dynamic> messageData = response['message'] ?? {};
             String generatedText = messageData['content'] ?? '';
             print('Generated text: $generatedText');
@@ -294,7 +364,7 @@ class _HelpscreenState extends State<Helpscreen> {
                 createdAt: DateTime.now(),
                 sentBy: '2',
                 replyMessage: replyMessage,
-                messageType: messageType,
+                messageType: MessageType.text,
                 status: MessageStatus.delivered,
               ),
             );
@@ -343,6 +413,9 @@ class _HelpscreenState extends State<Helpscreen> {
       ],
     );
 
+    // Send test image
+    // testSendAssetImage();
+
     // WidgetsBinding.instance.addPostFrameCallback((_) {
     //   sendChatMessage("Hello world!");
     // });
@@ -354,249 +427,281 @@ class _HelpscreenState extends State<Helpscreen> {
       // appBar: AppBar(
       //   title: const Text('Home Screen'),
       // ),
-      body: ChatView(
-        // TODO: remove the image picker button
-        chatController: chatController,
-        onSendTap: onSendTap,
-        featureActiveConfig: const FeatureActiveConfig(
-          lastSeenAgoBuilderVisibility: true,
-          receiptsBuilderVisibility: true,
-          enableScrollToBottomButton: true,
-        ),
-        scrollToBottomButtonConfig: ScrollToBottomButtonConfig(
-          backgroundColor: theme.textFieldBackgroundColor,
-          border: Border.all(
-            color: isDarkTheme ? Colors.transparent : Colors.grey,
-          ),
-          icon: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: theme.themeIconColor,
-            weight: 10,
-            size: 30,
-          ),
-        ),
-        chatViewState: ChatViewState.hasMessages,
-        chatViewStateConfig: ChatViewStateConfiguration(
-          loadingWidgetConfig: ChatViewStateWidgetConfiguration(
-            loadingIndicatorColor: theme.outgoingChatBubbleColor,
-          ),
-          onReloadButtonTap: () {},
-        ),
-        typeIndicatorConfig: TypeIndicatorConfiguration(
-          flashingCircleBrightColor: theme.flashingCircleBrightColor,
-          flashingCircleDarkColor: theme.flashingCircleDarkColor,
-        ),
-        appBar: ChatViewAppBar(
-          leading: SizedBox(width: 20),
-          elevation: theme.elevation,
-          backGroundColor: theme.appBarColor,
-          profilePicture: Data.profileImage,
-          backArrowColor: theme.backArrowColor,
-          chatTitle: "Chat view",
-          chatTitleTextStyle: TextStyle(
-            color: theme.appBarTitleTextStyle,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            letterSpacing: 0.25,
-          ),
-          userStatus: "online",
-          userStatusTextStyle: const TextStyle(color: Colors.grey),
-          actions: [
-            // IconButton(
-            //   onPressed: _onThemeIconTap,
-            //   icon: Icon(
-            //     isDarkTheme
-            //         ? Icons.brightness_4_outlined
-            //         : Icons.dark_mode_outlined,
-            //     color: theme.themeIconColor,
-            //   ),
-            // ),
-            // IconButton(
-            //   tooltip: 'Toggle TypingIndicator',
-            //   onPressed: _showHideTypingIndicator,
-            //   icon: Icon(Icons.keyboard, color: theme.themeIconColor),
-            // ),
-            IconButton(
-              tooltip: 'Change Chatbot Settings',
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return ChatbotSettingsPopup(
-                      isDarkTheme: isDarkTheme,
-                      onThemeToggle: (newIsDark) {
-                        setState(() {
-                          isDarkTheme = newIsDark;
-                          theme = isDarkTheme ? DarkTheme() : LightTheme();
-                        });
+      body: Stack(
+        children: [
+          ChatView(
+            chatController: chatController,
+            onSendTap: onSendTap,
+            featureActiveConfig: const FeatureActiveConfig(
+              lastSeenAgoBuilderVisibility: true,
+              receiptsBuilderVisibility: true,
+              enableScrollToBottomButton: true,
+            ),
+            scrollToBottomButtonConfig: ScrollToBottomButtonConfig(
+              backgroundColor: theme.textFieldBackgroundColor,
+              border: Border.all(
+                color: isDarkTheme ? Colors.transparent : Colors.grey,
+              ),
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: theme.themeIconColor,
+                weight: 10,
+                size: 30,
+              ),
+            ),
+            chatViewState: ChatViewState.hasMessages,
+            chatViewStateConfig: ChatViewStateConfiguration(
+              loadingWidgetConfig: ChatViewStateWidgetConfiguration(
+                loadingIndicatorColor: theme.outgoingChatBubbleColor,
+              ),
+              onReloadButtonTap: () {},
+            ),
+            typeIndicatorConfig: TypeIndicatorConfiguration(
+              flashingCircleBrightColor: theme.flashingCircleBrightColor,
+              flashingCircleDarkColor: theme.flashingCircleDarkColor,
+            ),
+            appBar: ChatViewAppBar(
+              leading: SizedBox(width: 20),
+              elevation: theme.elevation,
+              backGroundColor: theme.appBarColor,
+              profilePicture: Data.profileImage,
+              backArrowColor: theme.backArrowColor,
+              chatTitle: "Chat view",
+              chatTitleTextStyle: TextStyle(
+                color: theme.appBarTitleTextStyle,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                letterSpacing: 0.25,
+              ),
+              userStatus: "online",
+              userStatusTextStyle: const TextStyle(color: Colors.grey),
+              actions: [
+                // IconButton(
+                //   onPressed: _onThemeIconTap,
+                //   icon: Icon(
+                //     isDarkTheme
+                //         ? Icons.brightness_4_outlined
+                //         : Icons.dark_mode_outlined,
+                //     color: theme.themeIconColor,
+                //   ),
+                // ),
+                // IconButton(
+                //   tooltip: 'Toggle TypingIndicator',
+                //   onPressed: _showHideTypingIndicator,
+                //   icon: Icon(Icons.keyboard, color: theme.themeIconColor),
+                // ),
+                IconButton(
+                  tooltip: 'Change Chatbot Settings',
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return ChatbotSettingsPopup(
+                          isDarkTheme: isDarkTheme,
+                          onThemeToggle: (newIsDark) {
+                            setState(() {
+                              isDarkTheme = newIsDark;
+                              theme = isDarkTheme ? DarkTheme() : LightTheme();
+                            });
+                          },
+                        );
                       },
                     );
                   },
-                );
-              },
-              icon: Icon(Icons.tune, color: theme.themeIconColor),
+                  icon: Icon(Icons.tune, color: theme.themeIconColor),
+                ),
+              ],
             ),
-          ],
-        ),
-        chatBackgroundConfig: ChatBackgroundConfiguration(
-          messageTimeIconColor: theme.messageTimeIconColor,
-          messageTimeTextStyle: TextStyle(color: theme.messageTimeTextColor),
-          defaultGroupSeparatorConfig: DefaultGroupSeparatorConfiguration(
-            textStyle: TextStyle(color: theme.chatHeaderColor, fontSize: 17),
-          ),
-          backgroundColor: theme.backgroundColor,
-        ),
-        sendMessageConfig: SendMessageConfiguration(
-          // imagePickerIconsConfig: ImagePickerIconsConfiguration(
-          //   cameraIconColor: theme.cameraIconColor,
-          //   galleryIconColor: theme.galleryIconColor,
-          // ),
-          enableCameraImagePicker: false,
-          allowRecordingVoice: false,
-          replyMessageColor: theme.replyMessageColor,
-          defaultSendButtonColor: theme.sendButtonColor,
-          replyDialogColor: theme.replyDialogColor,
-          replyTitleColor: theme.replyTitleColor,
-          textFieldBackgroundColor: theme.textFieldBackgroundColor,
-          closeIconColor: theme.closeIconColor,
-          textFieldConfig: TextFieldConfiguration(
-            onMessageTyping: (status) {
-              /// Do with status
-              debugPrint(status.toString());
-            },
-            compositionThresholdTime: const Duration(seconds: 1),
-            textStyle: TextStyle(color: theme.textFieldTextColor),
-          ),
-          micIconColor: theme.replyMicIconColor,
-          voiceRecordingConfiguration: VoiceRecordingConfiguration(
-            backgroundColor: theme.waveformBackgroundColor,
-            recorderIconColor: theme.recordIconColor,
-            waveStyle: WaveStyle(
-              showMiddleLine: false,
-              waveColor: theme.waveColor ?? Colors.white,
-              extendWaveform: true,
-            ),
-          ),
-        ),
-        chatBubbleConfig: ChatBubbleConfiguration(
-          outgoingChatBubbleConfig: ChatBubble(
-            linkPreviewConfig: LinkPreviewConfiguration(
-              backgroundColor: theme.linkPreviewOutgoingChatColor,
-              bodyStyle: theme.outgoingChatLinkBodyStyle,
-              titleStyle: theme.outgoingChatLinkTitleStyle,
-            ),
-            receiptsWidgetConfig: const ReceiptsWidgetConfig(
-              showReceiptsIn: ShowReceiptsIn.all,
-            ),
-            color: theme.outgoingChatBubbleColor,
-          ),
-          inComingChatBubbleConfig: ChatBubble(
-            linkPreviewConfig: LinkPreviewConfiguration(
-              linkStyle: TextStyle(
-                color: theme.inComingChatBubbleTextColor,
-                decoration: TextDecoration.underline,
+            chatBackgroundConfig: ChatBackgroundConfiguration(
+              messageTimeIconColor: theme.messageTimeIconColor,
+              messageTimeTextStyle: TextStyle(
+                color: theme.messageTimeTextColor,
               ),
-              backgroundColor: theme.linkPreviewIncomingChatColor,
-              bodyStyle: theme.incomingChatLinkBodyStyle,
-              titleStyle: theme.incomingChatLinkTitleStyle,
-            ),
-            textStyle: TextStyle(color: theme.inComingChatBubbleTextColor),
-            onMessageRead: (message) {
-              /// send your message reciepts to the other client
-              debugPrint('Message Read');
-            },
-            senderNameTextStyle: TextStyle(
-              color: theme.inComingChatBubbleTextColor,
-            ),
-            color: theme.inComingChatBubbleColor,
-          ),
-        ),
-        replyPopupConfig: ReplyPopupConfiguration(
-          backgroundColor: theme.replyPopupColor,
-          buttonTextStyle: TextStyle(color: theme.replyPopupButtonColor),
-          topBorderColor: theme.replyPopupTopBorderColor,
-        ),
-        reactionPopupConfig: ReactionPopupConfiguration(
-          shadow: BoxShadow(
-            color: isDarkTheme ? Colors.black54 : Colors.grey.shade400,
-            blurRadius: 20,
-          ),
-          backgroundColor: theme.reactionPopupColor,
-        ),
-        messageConfig: MessageConfiguration(
-          messageReactionConfig: MessageReactionConfiguration(
-            backgroundColor: theme.messageReactionBackGroundColor,
-            borderColor: theme.messageReactionBackGroundColor,
-            reactedUserCountTextStyle: TextStyle(
-              color: theme.inComingChatBubbleTextColor,
-            ),
-            reactionCountTextStyle: TextStyle(
-              color: theme.inComingChatBubbleTextColor,
-            ),
-            reactionsBottomSheetConfig: ReactionsBottomSheetConfiguration(
+              defaultGroupSeparatorConfig: DefaultGroupSeparatorConfiguration(
+                textStyle: TextStyle(
+                  color: theme.chatHeaderColor,
+                  fontSize: 17,
+                ),
+              ),
               backgroundColor: theme.backgroundColor,
-              reactedUserTextStyle: TextStyle(
-                color: theme.inComingChatBubbleTextColor,
+            ),
+            sendMessageConfig: SendMessageConfiguration(
+              // imagePickerIconsConfig: ImagePickerIconsConfiguration(
+              //   cameraIconColor: theme.cameraIconColor,
+              //   galleryIconColor: theme.galleryIconColor,
+              // ),
+              enableCameraImagePicker: false,
+              allowRecordingVoice: false,
+              replyMessageColor: theme.replyMessageColor,
+              defaultSendButtonColor: theme.sendButtonColor,
+              replyDialogColor: theme.replyDialogColor,
+              replyTitleColor: theme.replyTitleColor,
+              textFieldBackgroundColor: theme.textFieldBackgroundColor,
+              closeIconColor: theme.closeIconColor,
+              textFieldConfig: TextFieldConfiguration(
+                onMessageTyping: (status) {
+                  /// Do with status
+                  debugPrint(status.toString());
+                },
+                compositionThresholdTime: const Duration(seconds: 1),
+                textStyle: TextStyle(color: theme.textFieldTextColor),
               ),
-              reactionWidgetDecoration: BoxDecoration(
-                color: theme.inComingChatBubbleColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: isDarkTheme ? Colors.black12 : Colors.grey.shade200,
-                    offset: const Offset(0, 20),
-                    blurRadius: 40,
+              micIconColor: theme.replyMicIconColor,
+              voiceRecordingConfiguration: VoiceRecordingConfiguration(
+                backgroundColor: theme.waveformBackgroundColor,
+                recorderIconColor: theme.recordIconColor,
+                waveStyle: WaveStyle(
+                  showMiddleLine: false,
+                  waveColor: theme.waveColor ?? Colors.white,
+                  extendWaveform: true,
+                ),
+              ),
+            ),
+            chatBubbleConfig: ChatBubbleConfiguration(
+              outgoingChatBubbleConfig: ChatBubble(
+                linkPreviewConfig: LinkPreviewConfiguration(
+                  backgroundColor: theme.linkPreviewOutgoingChatColor,
+                  bodyStyle: theme.outgoingChatLinkBodyStyle,
+                  titleStyle: theme.outgoingChatLinkTitleStyle,
+                ),
+                receiptsWidgetConfig: const ReceiptsWidgetConfig(
+                  showReceiptsIn: ShowReceiptsIn.all,
+                ),
+                color: theme.outgoingChatBubbleColor,
+              ),
+              inComingChatBubbleConfig: ChatBubble(
+                linkPreviewConfig: LinkPreviewConfiguration(
+                  linkStyle: TextStyle(
+                    color: theme.inComingChatBubbleTextColor,
+                    decoration: TextDecoration.underline,
                   ),
-                ],
-                borderRadius: BorderRadius.circular(10),
+                  backgroundColor: theme.linkPreviewIncomingChatColor,
+                  bodyStyle: theme.incomingChatLinkBodyStyle,
+                  titleStyle: theme.incomingChatLinkTitleStyle,
+                ),
+                textStyle: TextStyle(color: theme.inComingChatBubbleTextColor),
+                onMessageRead: (message) {
+                  /// send your message reciepts to the other client
+                  debugPrint('Message Read');
+                },
+                senderNameTextStyle: TextStyle(
+                  color: theme.inComingChatBubbleTextColor,
+                ),
+                color: theme.inComingChatBubbleColor,
               ),
             ),
-          ),
-          // imageMessageConfig: ImageMessageConfiguration(
-          //   margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-          //   shareIconConfig: ShareIconConfiguration(
-          //     defaultIconBackgroundColor: theme.shareIconBackgroundColor,
-          //     defaultIconColor: theme.shareIconColor,
-          //   ),
-          // ),
-        ),
-        profileCircleConfig: const ProfileCircleConfiguration(
-          profileImageUrl: Data.profileImage,
-        ),
-        repliedMessageConfig: RepliedMessageConfiguration(
-          backgroundColor: theme.repliedMessageColor,
-          verticalBarColor: theme.verticalBarColor,
-          repliedMsgAutoScrollConfig: RepliedMsgAutoScrollConfig(
-            enableHighlightRepliedMsg: true,
-            highlightColor: Colors.pinkAccent.shade100,
-            highlightScale: 1.1,
-          ),
-          textStyle: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.25,
-          ),
-          replyTitleTextStyle: TextStyle(color: theme.repliedTitleTextColor),
-        ),
-        swipeToReplyConfig: SwipeToReplyConfiguration(
-          replyIconColor: theme.swipeToReplyIconColor,
-        ),
-        replySuggestionsConfig: ReplySuggestionsConfig(
-          itemConfig: SuggestionItemConfig(
-            decoration: BoxDecoration(
-              color: theme.textFieldBackgroundColor,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: theme.outgoingChatBubbleColor ?? Colors.white,
+            replyPopupConfig: ReplyPopupConfiguration(
+              backgroundColor: theme.replyPopupColor,
+              buttonTextStyle: TextStyle(color: theme.replyPopupButtonColor),
+              topBorderColor: theme.replyPopupTopBorderColor,
+            ),
+            reactionPopupConfig: ReactionPopupConfiguration(
+              shadow: BoxShadow(
+                color: isDarkTheme ? Colors.black54 : Colors.grey.shade400,
+                blurRadius: 20,
+              ),
+              backgroundColor: theme.reactionPopupColor,
+            ),
+            messageConfig: MessageConfiguration(
+              messageReactionConfig: MessageReactionConfiguration(
+                backgroundColor: theme.messageReactionBackGroundColor,
+                borderColor: theme.messageReactionBackGroundColor,
+                reactedUserCountTextStyle: TextStyle(
+                  color: theme.inComingChatBubbleTextColor,
+                ),
+                reactionCountTextStyle: TextStyle(
+                  color: theme.inComingChatBubbleTextColor,
+                ),
+                reactionsBottomSheetConfig: ReactionsBottomSheetConfiguration(
+                  backgroundColor: theme.backgroundColor,
+                  reactedUserTextStyle: TextStyle(
+                    color: theme.inComingChatBubbleTextColor,
+                  ),
+                  reactionWidgetDecoration: BoxDecoration(
+                    color: theme.inComingChatBubbleColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            isDarkTheme ? Colors.black12 : Colors.grey.shade200,
+                        offset: const Offset(0, 20),
+                        blurRadius: 40,
+                      ),
+                    ],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              // imageMessageConfig: ImageMessageConfiguration(
+              //   margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+              //   shareIconConfig: ShareIconConfiguration(
+              //     defaultIconBackgroundColor: theme.shareIconBackgroundColor,
+              //     defaultIconColor: theme.shareIconColor,
+              //   ),
+              // ),
+            ),
+            profileCircleConfig: const ProfileCircleConfiguration(
+              profileImageUrl: Data.profileImage,
+            ),
+            repliedMessageConfig: RepliedMessageConfiguration(
+              backgroundColor: theme.repliedMessageColor,
+              verticalBarColor: theme.verticalBarColor,
+              repliedMsgAutoScrollConfig: RepliedMsgAutoScrollConfig(
+                enableHighlightRepliedMsg: true,
+                highlightColor: Colors.pinkAccent.shade100,
+                highlightScale: 1.1,
+              ),
+              textStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.25,
+              ),
+              replyTitleTextStyle: TextStyle(
+                color: theme.repliedTitleTextColor,
               ),
             ),
-            textStyle: TextStyle(
-              color: isDarkTheme ? Colors.white : Colors.black,
+            swipeToReplyConfig: SwipeToReplyConfiguration(
+              replyIconColor: theme.swipeToReplyIconColor,
+            ),
+            replySuggestionsConfig: ReplySuggestionsConfig(
+              itemConfig: SuggestionItemConfig(
+                decoration: BoxDecoration(
+                  color: theme.textFieldBackgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: theme.outgoingChatBubbleColor ?? Colors.white,
+                  ),
+                ),
+                textStyle: TextStyle(
+                  color: isDarkTheme ? Colors.white : Colors.black,
+                ),
+              ),
+              onTap:
+                  (item) => onSendTap(
+                    item.text,
+                    const ReplyMessage(),
+                    MessageType.text,
+                  ),
             ),
           ),
-          onTap:
-              (item) =>
-                  onSendTap(item.text, const ReplyMessage(), MessageType.text),
-        ),
+          (pendingImagePath != null)
+              ? Positioned(
+                bottom: 80,
+                left: 25,
+                child: SizedBox(
+                  width: SizeConfig.horizontal! * 80,
+                  height: SizeConfig.vertical! * 7,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        "What would you like the assistant to do with this image?",
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              : const SizedBox.shrink(),
+        ],
       ),
       bottomNavigationBar: Navbar(currentIndex: 3),
     );
