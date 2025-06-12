@@ -90,3 +90,9 @@ Content-Type: application/json
   "stream": true
 }
 ```
+
+
+
+
+Dev Notes:
+- to enable markdown rendering in the chat view, change reply_message_view.dart to use the markdown widget instead of text widget.

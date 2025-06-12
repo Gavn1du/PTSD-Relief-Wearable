@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
+import 'package:markdown_widget/widget/markdown.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:chatview/chatview.dart';
 import 'package:ptsd_relief_app/components/data.dart';
@@ -28,6 +30,43 @@ class _HelpscreenState extends State<Helpscreen> {
   bool isDarkTheme = false;
 
   String? pendingImagePath;
+
+  // TODO: consider optimisations for large message history
+
+  // Function to save message history to SharedPreferences
+  Future<void> saveMessageHistory(List<Message> messages) async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> messageJsonList =
+        messages.map((msg) => jsonEncode(msg.toJson())).toList();
+    await prefs.setStringList('messageHistory', messageJsonList);
+  }
+
+  // Function to load message history from SharedPreferences
+  Future<void> loadMessageHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? messageJsonList = prefs.getStringList('messageHistory');
+    if (messageJsonList != null) {
+      messageList =
+          messageJsonList
+              .map((jsonstr) => Message.fromJson(jsonDecode(jsonstr)))
+              .toList();
+
+      for (var msg in messageList) {
+        chatController.addMessage(msg);
+      }
+
+      print('Loaded message history: ${messageList.length} messages');
+      // for (var msg in messageList) {
+      //   print(
+      //     'Message: ${msg.message}, Sent by: ${msg.sentBy}, Created at: ${msg.createdAt}',
+      //   );
+      // }
+    } else {
+      print('No message history found in SharedPreferences');
+      messageList = [];
+      chatController.initialMessageList = messageList;
+    }
+  }
 
   // ===== OLLAMA TEST FUNCTIONS =====
   String ollamaUrl = "http://localhost:11434";
@@ -395,6 +434,10 @@ class _HelpscreenState extends State<Helpscreen> {
               ),
             );
             // receiveMessage();
+
+            // Save the message history after sending
+            saveMessageHistory(chatController.initialMessageList);
+            print('Message sent and saved successfully.');
           }
         })
         .catchError((error) {
@@ -438,6 +481,9 @@ class _HelpscreenState extends State<Helpscreen> {
         ChatUser(id: '2', name: 'Chatbot', profilePhoto: Data.profileImage),
       ],
     );
+
+    // Load message history from SharedPreferences
+    loadMessageHistory();
 
     // Send test image
     // testSendAssetImage();
@@ -727,6 +773,54 @@ class _HelpscreenState extends State<Helpscreen> {
                 ),
               )
               : const SizedBox.shrink(),
+          // Test Card
+          // Positioned(
+          //   top: 50,
+          //   left: 25,
+          //   child: SizedBox(
+          //     width: SizeConfig.horizontal! * 80,
+          //     height: SizeConfig.vertical! * 30,
+          //     child: Card(
+          //       child: Padding(
+          //         padding: const EdgeInsets.all(8.0),
+          //         child: MarkdownWidget(
+          //           data:
+          //               "The Empire State Building is a renowned skyscraper in New York City. Here's a concise overview of its size: - **Height**: It stands at **1,454 feet (443 meters)** tall, including the antenna. The building itself is **1,250 feet (380 meters)** tall, with the antenna adding **200 feet (61 meters)**",
+          //         ),
+          //       ),
+          //     ),
+          //   ),
+          // ),
+
+          // ../../../../.pub-cache/hosted/pub.dev/flutter_math_fork-0.7.4/lib/src/render/layout/layout_builder_baseline.dart:26:9: Error: Type
+          // 'RenderObjectWithLayoutCallbackMixin' not found.
+          //         RenderObjectWithLayoutCallbackMixin,
+          //         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          // ../../../../.pub-cache/hosted/pub.dev/flutter_math_fork-0.7.4/lib/src/render/layout/layout_builder_baseline.dart:23:7: Error: The
+          // type 'RenderObjectWithLayoutCallbackMixin' can't be mixed in.
+          // class _RenderLayoutBuilderPreserveBaseline extends RenderBox
+          //       ^
+          // ../../../../.pub-cache/hosted/pub.dev/flutter_math_fork-0.7.4/lib/src/render/layout/layout_builder_baseline.dart:63:5: Error: The
+          // method 'runLayoutCallback' isn't defined for the class '_RenderLayoutBuilderPreserveBaseline'.
+          //  - '_RenderLayoutBuilderPreserveBaseline' is from 'package:flutter_math_fork/src/render/layout/layout_builder_baseline.dart'
+          //  ('../../../../.pub-cache/hosted/pub.dev/flutter_math_fork-0.7.4/lib/src/render/layout/layout_builder_baseline.dart').
+          // Try correcting the name to the name of an existing method, or defining a method named 'runLayoutCallback'.
+          //     runLayoutCallback();// Positioned(
+          //   top: 400,
+          //   left: 25,
+          //   child: SizedBox(
+          //     width: SizeConfig.horizontal! * 80,
+          //     height: SizeConfig.vertical! * 30,
+          //     child: Card(
+          //       child: Padding(
+          //         padding: const EdgeInsets.all(8.0),
+          //         child: GptMarkdown(
+          //           "The Empire State Building is a renowned skyscraper in New York City. Here's a concise overview of its size: - **Height**: It stands at **1,454 feet (443 meters)** tall, including the antenna. The building itself is **1,250 feet (380 meters)** tall, with the antenna adding **200 feet (61 meters)**",
+          //         ),
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
       ),
       bottomNavigationBar: Navbar(currentIndex: 3),
