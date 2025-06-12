@@ -134,25 +134,50 @@ class _HelpscreenState extends State<Helpscreen> {
     String imagePath, [
     String prompt = 'Describe this image',
   ]) async {
+    /*
+    TEST Messages: [
+    {role: user, content: Hi}, 
+    {role: assistant, content: Hello}, 
+    {role: user, content: /Users/gavindu/Library/Developer/CoreSimulator/Devices/27BCD2D4-0315-476B-89F3-89D6AFD138DF/data/Containers/Data/Application/E55F64D3-5192-43D5-B8F6-A10A29DB3339/tmp/image_picker_7FA5F383-3EFC-4D78-B9E1-CBE67D12827D-58853-0000182B325B85BE.jpg}, 
+    {role: user, content: Analyze the middle}
+    ]
+     */
     final uri = Uri.parse('$ollamaUrl/api/chat');
     print('Sending request to: $uri');
     print('Image path: $imagePath');
+
+    List<Map<String, dynamic>> messages = [];
+    for (Message msg in chatController.initialMessageList) {
+      messages.add({
+        'role':
+            msg.sentBy == chatController.currentUser.id ? 'user' : 'assistant',
+        'content': msg.message,
+      });
+    }
+
+    // Remove the last two message since we are merging below
+    if (messages.length >= 2) {
+      messages.removeRange(messages.length - 2, messages.length);
+    }
 
     // 1) Read & base64 encode the image
     final bytes = await convertToPngBytes(File(imagePath));
     final base64Image = base64Encode(bytes);
 
+    messages.add({
+      'role': 'user',
+      'content': prompt,
+      'images': [base64Image],
+    });
+
+    // Print the messages for debugging
+    print('TEST Messages: $messages');
+
     // 2) Build the JSON
     final body = jsonEncode({
       'model': 'qwen2.5vl:3b',
       'stream': false, // Set to true if you want streaming
-      'messages': [
-        {
-          'role': 'user',
-          'content': prompt,
-          'images': [base64Image],
-        },
-      ],
+      'messages': messages,
     });
 
     //3) Send the request
@@ -227,10 +252,11 @@ class _HelpscreenState extends State<Helpscreen> {
       print('Sending text message: $message');
 
       if (pendingImagePath != null) {
-        data = await sendImage(pendingImagePath!, message);
+        var pendingPath = pendingImagePath;
         setState(() {
           pendingImagePath = null; // Clear the pending image path
         });
+        data = await sendImage(pendingPath!, message);
       } else {
         final response = await http.post(
           uri,
@@ -392,13 +418,13 @@ class _HelpscreenState extends State<Helpscreen> {
   void initState() {
     super.initState();
     messageList = [
-      Message(id: '1', message: "Hi", createdAt: DateTime.now(), sentBy: "1"),
-      Message(
-        id: '2',
-        message: "Hello",
-        createdAt: DateTime.now(),
-        sentBy: "2",
-      ),
+      // Message(id: '1', message: "Hi", createdAt: DateTime.now(), sentBy: "1"),
+      // Message(
+      //   id: '2',
+      //   message: "Hello",
+      //   createdAt: DateTime.now(),
+      //   sentBy: "2",
+      // ),
     ];
     chatController = ChatController(
       initialMessageList: messageList,
