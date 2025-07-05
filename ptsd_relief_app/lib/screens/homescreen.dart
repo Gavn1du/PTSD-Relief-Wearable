@@ -5,6 +5,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:ptsd_relief_app/components/app_colors.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class BPMData {
+  final DateTime time;
+  final int bpm;
+
+  BPMData(this.time, this.bpm);
+}
 
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
@@ -18,6 +26,9 @@ class _HomescreenState extends State<Homescreen> {
   late final double oneHourAgoMillis;
   late final List<FlSpot> timeSpots;
 
+  int currentBPM = 0;
+  List<BPMData> sortedBPMData = [];
+
   List<Color> gradientColors = [
     AppColors.contentColorCyan,
     AppColors.contentColorBlue,
@@ -26,15 +37,30 @@ class _HomescreenState extends State<Homescreen> {
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
     const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 16);
     Widget text;
+    DateTime now = DateTime.now();
+    DateTime fifteenMinutesAgo = now.subtract(const Duration(minutes: 15));
+    String formattedTime = DateFormat('HH:mm').format(fifteenMinutesAgo);
+    DateTime thirtyMinutesAgo = now.subtract(const Duration(minutes: 30));
+    String formattedTime30 = DateFormat('HH:mm').format(thirtyMinutesAgo);
+    DateTime fortyFiveMinutesAgo = now.subtract(const Duration(minutes: 45));
+    String formattedTime45 = DateFormat('HH:mm').format(fortyFiveMinutesAgo);
+    DateTime oneHourAgo = now.subtract(const Duration(hours: 1));
+    String formattedTime60 = DateFormat('HH:mm').format(oneHourAgo);
     switch (value.toInt()) {
-      case 2:
-        text = const Text('5:00', style: style);
+      case 0:
+        text = Text(formattedTime60, style: style);
         break;
-      case 5:
-        text = const Text('5:15', style: style);
+      case 15:
+        text = Text(formattedTime45, style: style);
         break;
-      case 8:
-        text = const Text('5:30', style: style);
+      case 30:
+        text = Text(formattedTime30, style: style);
+        break;
+      case 45:
+        text = Text(formattedTime, style: style);
+        break;
+      case 60:
+        text = const Text('Now', style: style);
         break;
       default:
         text = const Text('', style: style);
@@ -119,20 +145,12 @@ class _HomescreenState extends State<Homescreen> {
         border: Border.all(color: const Color(0xff37434d)),
       ),
       minX: 0,
-      maxX: 11,
+      maxX: 60,
       minY: 0,
       maxY: 6,
       lineBarsData: [
         LineChartBarData(
-          spots: const [
-            FlSpot(0, 3),
-            FlSpot(2.6, 2),
-            FlSpot(4.9, 5),
-            FlSpot(6.8, 3.1),
-            FlSpot(8, 4),
-            FlSpot(9.5, 3),
-            FlSpot(11, 4),
-          ],
+          spots: timeSpots,
           isCurved: true,
           gradient: LinearGradient(colors: gradientColors),
           barWidth: 5,
@@ -170,6 +188,39 @@ class _HomescreenState extends State<Homescreen> {
       FlSpot(oneHourAgoMillis + (nowMillis - oneHourAgoMillis) * 0.75, 3.1),
       FlSpot(nowMillis, 4),
     ];
+
+    // Fetch the BPM data from shared preferences
+    // example data format: ["2023-10-01T12:00:00.000Z,67", "2023-10-01T12:05:00.000Z,70"]
+    SharedPreferences.getInstance().then((prefs) {
+      List<String>? bpmDataStrings = prefs.getStringList('bpmData');
+      if (bpmDataStrings != null) {
+        sortedBPMData =
+            bpmDataStrings.map((data) {
+              final parts = data.split(',');
+              final time = DateTime.parse(parts[0]);
+              final bpm = int.parse(parts[1]);
+              return BPMData(time, bpm);
+            }).toList();
+
+        sortedBPMData.sort((a, b) => a.time.compareTo(b.time));
+      }
+    });
+
+    // add example data for debug
+    sortedBPMData.addAll([
+      BPMData(DateTime.now().subtract(Duration(minutes: 5)), 67),
+      BPMData(DateTime.now().subtract(Duration(minutes: 10)), 70),
+      BPMData(DateTime.now().subtract(Duration(minutes: 15)), 65),
+    ]);
+
+    // create the timespots for the chart
+    timeSpots.clear();
+    for (var bpmData in sortedBPMData) {
+      int minutesAgo = DateTime.now().difference(bpmData.time).inMinutes;
+      double xValue = (60 - minutesAgo).toDouble();
+      if (xValue < 0 || xValue > 60) continue; // Skip
+      timeSpots.add(FlSpot(xValue, bpmData.bpm.toDouble()));
+    }
   }
 
   @override
@@ -191,7 +242,10 @@ class _HomescreenState extends State<Homescreen> {
                     padding: const EdgeInsets.all(8.0),
                     child: Row(
                       children: [
-                        Text('67', style: TextStyle(fontSize: 20)),
+                        Text(
+                          currentBPM.toString(),
+                          style: TextStyle(fontSize: 20),
+                        ),
                         Text('BPM'),
                       ],
                     ),
@@ -203,7 +257,7 @@ class _HomescreenState extends State<Homescreen> {
                 width: SizeConfig.horizontal! * 80,
                 child: Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(13.0),
+                    padding: const EdgeInsets.all(20.0),
                     child: LineChart(mainData()),
                   ),
                 ),
@@ -214,12 +268,27 @@ class _HomescreenState extends State<Homescreen> {
                 child: Card(
                   child: Padding(
                     padding: const EdgeInsets.all(13.0),
-                    child: ListView.builder(
-                      itemCount: 5,
-                      itemBuilder: (context, index) {
-                        return const RecommendationCard();
-                      },
-                    ),
+                    child:
+                        (sortedBPMData.isNotEmpty)
+                            ? ListView.builder(
+                              itemCount: sortedBPMData.length,
+                              itemBuilder: (context, index) {
+                                final bpmData = sortedBPMData[index];
+                                return RecommendationCard(
+                                  bpm: bpmData.bpm,
+                                  time: bpmData.time,
+                                );
+                              },
+                            )
+                            : Center(
+                              child: Text(
+                                'No BPM history available',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
                   ),
                 ),
               ),
@@ -248,7 +317,10 @@ class _HomescreenState extends State<Homescreen> {
 }
 
 class RecommendationCard extends StatefulWidget {
-  const RecommendationCard({super.key});
+  const RecommendationCard({super.key, required this.bpm, required this.time});
+
+  final int bpm;
+  final DateTime time;
 
   @override
   State<RecommendationCard> createState() => _RecommendationCardState();
@@ -261,7 +333,18 @@ class _RecommendationCardState extends State<RecommendationCard> {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
         child: Row(
-          children: [Text('67', style: TextStyle(fontSize: 20)), Text('BPM')],
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Text(widget.bpm.toString(), style: TextStyle(fontSize: 20)),
+                Text('BPM'),
+              ],
+            ),
+            Text(
+              '${widget.time.hour}:${widget.time.minute.toString().padLeft(2, '0')} (${DateFormat('dd/MM/yyyy').format(widget.time)})',
+            ),
+          ],
         ),
       ),
     );

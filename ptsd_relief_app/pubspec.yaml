@@ -42,6 +42,7 @@ dependencies:
   http: ^1.4.0
   markdown_widget: ^2.3.2+8
   gpt_markdown: ^1.0.20
+  flutter_math_fork: 0.7.3
 
 dev_dependencies:
   flutter_test:
