@@ -666,6 +666,18 @@ class _HelpscreenState extends State<Helpscreen> {
               backgroundColor: theme.replyPopupColor,
               buttonTextStyle: TextStyle(color: theme.replyPopupButtonColor),
               topBorderColor: theme.replyPopupTopBorderColor,
+              onMoreTap: (Message message, bool isReplying) {
+                /// Do something when more button is tapped
+                debugPrint('More tapped for message: ${message.message}');
+              },
+              onReplyTap: (Message message) {
+                /// Do something when reply button is tapped
+                debugPrint('Reply tapped for message: ${message.message}');
+              },
+              onReportTap: (message) {
+                /// Do something when report button is tapped
+                debugPrint('Report tapped for message: ${message.message}');
+              },
             ),
             reactionPopupConfig: ReactionPopupConfiguration(
               shadow: BoxShadow(
@@ -703,13 +715,6 @@ class _HelpscreenState extends State<Helpscreen> {
                   ),
                 ),
               ),
-              // imageMessageConfig: ImageMessageConfiguration(
-              //   margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-              //   shareIconConfig: ShareIconConfiguration(
-              //     defaultIconBackgroundColor: theme.shareIconBackgroundColor,
-              //     defaultIconColor: theme.shareIconColor,
-              //   ),
-              // ),
             ),
             profileCircleConfig: const ProfileCircleConfiguration(
               profileImageUrl: Data.profileImage,

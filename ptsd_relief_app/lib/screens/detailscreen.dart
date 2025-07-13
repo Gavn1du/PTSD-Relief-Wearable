@@ -2,13 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:ptsd_relief_app/size_config.dart';
 
 class DetailScreen extends StatefulWidget {
-  const DetailScreen({super.key});
+  const DetailScreen({
+    super.key,
+    required this.timestamp,
+    required this.highestHeartrate,
+    required this.aiTitle,
+    required this.activities,
+  });
+
+  final DateTime timestamp;
+  final int highestHeartrate;
+  final String aiTitle;
+  final List<String> activities;
 
   @override
   State<DetailScreen> createState() => _DetailScreenState();
 }
 
 class _DetailScreenState extends State<DetailScreen> {
+  String formatDateTime(DateTime dateTime) {
+    // Format the date and time as needed
+    return '${dateTime.month}/${dateTime.day}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -16,9 +32,9 @@ class _DetailScreenState extends State<DetailScreen> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text("01/01/2020"),
-            SizedBox(width: 10),
-            Text("10:00 AM"),
+            Text(formatDateTime(widget.timestamp)),
+            // SizedBox(width: 10),
+            // Text("10:00 AM"),
             SizedBox(width: SizeConfig.horizontal! * 16),
           ],
         ),
@@ -38,11 +54,11 @@ class _DetailScreenState extends State<DetailScreen> {
                 children: [
                   SizedBox(height: SizeConfig.vertical! * 2),
                   Text(
-                    "Highest Heartrate: 120 bpm",
+                    "Highest Heartrate: ${widget.highestHeartrate} bpm",
                     style: TextStyle(fontSize: 20, color: Colors.white),
                   ),
                   Text(
-                    "Panic Attacks", // This will eventually be a title suggest by the AI
+                    widget.aiTitle,
                     style: TextStyle(fontSize: 20, color: Colors.white),
                   ),
                   SizedBox(height: SizeConfig.vertical! * 1),
@@ -51,22 +67,32 @@ class _DetailScreenState extends State<DetailScreen> {
                     style: TextStyle(fontSize: 20, color: Colors.white),
                   ),
                   Expanded(
-                    child: ListView(
-                      children: [
-                        Row(
+                    child: ListView.builder(
+                      itemCount: widget.activities.length,
+                      itemBuilder: (context, index) {
+                        return Row(
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(8.0, 0, 0, 0),
-                              child: Text(
-                                "1. ",
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  color: Colors.white,
+                            SizedBox(
+                              width: SizeConfig.horizontal! * 10,
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  8.5,
+                                  0,
+                                  0,
+                                  0,
+                                ),
+                                child: Text(
+                                  "${index + 1}. ",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
                             SizedBox(
-                              width: SizeConfig.horizontal! * 80,
+                              width: SizeConfig.horizontal! * 77,
                               height: SizeConfig.vertical! * 8,
                               child: Card(
                                 color: Colors.white,
@@ -74,7 +100,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                   padding: const EdgeInsets.all(8.0),
                                   child: Center(
                                     child: Text(
-                                      "Meditation for 20 minutes",
+                                      widget.activities[index],
                                       textAlign: TextAlign.start,
                                       style: TextStyle(
                                         fontSize: 20,
@@ -86,8 +112,8 @@ class _DetailScreenState extends State<DetailScreen> {
                               ),
                             ),
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                 ],

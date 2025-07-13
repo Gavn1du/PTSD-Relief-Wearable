@@ -2,6 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:ptsd_relief_app/size_config.dart';
 
+/*
+
+RECOMMENDATION ALGORITHM LOGIC
+- Saved Chats are conversation that the user chooses to save
+- Common Tips are tips the AI recommends based on the user's history (also feed to LLM to get)
+
+
+*/
+
 class Recscreen extends StatefulWidget {
   const Recscreen({super.key});
 

@@ -78,13 +78,13 @@ class _HomescreenState extends State<Homescreen> {
     const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 15);
     String text;
     switch (value.toInt()) {
-      case 1:
+      case 60:
         text = '60';
         break;
-      case 3:
+      case 90:
         text = '90';
         break;
-      case 5:
+      case 120:
         text = '120';
         break;
       default:
@@ -146,8 +146,8 @@ class _HomescreenState extends State<Homescreen> {
       ),
       minX: 0,
       maxX: 60,
-      minY: 0,
-      maxY: 6,
+      minY: 30,
+      maxY: 150,
       lineBarsData: [
         LineChartBarData(
           spots: timeSpots,
