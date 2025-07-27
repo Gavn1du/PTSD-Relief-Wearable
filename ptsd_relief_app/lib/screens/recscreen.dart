@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:ptsd_relief_app/size_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:markdown_widget/markdown_widget.dart';
 
 /*
 
@@ -65,15 +66,30 @@ class _RecscreenState extends State<Recscreen> {
             // It is the next day, regenerate the whole list of tips
             print('A day has passed since the last tips were stored.');
             sendChatMessage(
-              'Given the prior conversation chain, give 5 comma separated pieces of tips or advice in english that would be helpful to a user suffering from ptsd. If there is not enough information, just give 5 general tips.',
+              'Given the prior conversation chain, give 5 comma separated pieces of tips or advice in english that would be helpful to a user suffering from ptsd. If there is not enough information, just give 5 comma separated general tips.',
             ).then((response) {
               print('Response from tips request: $response');
               if (response.containsKey('error')) {
                 print('Error generating tips: ${response['error']}');
               } else {
-                commonTips = List<String>.from(response['tips'] ?? []);
+                String fullMessage = response['message']['content'];
+                print('Full message from response: $fullMessage');
+
+                // Separate out the numbered list of tips
+                final RegExp regex = RegExp(r'^\d+\.\s+(.*)$', multiLine: true);
+                final Iterable<RegExpMatch> matches = regex.allMatches(
+                  fullMessage,
+                );
+                commonTips =
+                    matches.map((match) => match.group(1) ?? '').toList();
+                print('Extracted tips: $commonTips');
+
+                // commonTips = List<String>.from(response['tips'] ?? []);
                 storeLastTipRequest();
                 print('New common tips generated: $commonTips');
+                setState(() {
+                  // Update the UI to reflect the new tips
+                });
               }
             });
             return;
@@ -97,16 +113,26 @@ class _RecscreenState extends State<Recscreen> {
       print('No common tips found in SharedPreferences');
       // get the new list of tips and store it
       sendChatMessage(
-        'Given the prior conversation chain, give 5 comma separated pieces of tips or advice in english that would be helpful to a user suffering from ptsd. If there is not enough information, just give 5 general tips.',
+        'Given the prior conversation chain, give 5 comma separated pieces of tips or advice in english that would be helpful to a user suffering from ptsd. If there is not enough information, just give 5 comma separated general tips.',
       ).then((response) {
         print('Response from tips request: $response');
-        // if (response.containsKey('error')) {
-        //   print('Error generating tips: ${response['error']}');
-        // } else {
-        //   commonTips = List<String>.from(response['tips'] ?? []);
-        //   storeLastTipRequest();
-        //   print('New common tips generated: $commonTips');
-        // }
+        if (response.containsKey('error')) {
+          print('Error generating tips: ${response['error']}');
+        } else {
+          String fullMessage = response['message']['content'];
+          print('Full message from response: $fullMessage');
+
+          // Separate out the numbered list of tips
+          final RegExp regex = RegExp(r'^\d+\.\s+(.*)$', multiLine: true);
+          final Iterable<RegExpMatch> matches = regex.allMatches(fullMessage);
+          commonTips = matches.map((match) => match.group(1) ?? '').toList();
+          print('Extracted tips: $commonTips');
+          storeLastTipRequest();
+          print('New common tips generated: $commonTips');
+          setState(() {
+            // Update the UI to reflect the new tips
+          });
+        }
       });
     }
   }
@@ -136,10 +162,44 @@ class _RecscreenState extends State<Recscreen> {
     final uri = Uri.parse('$ollamaUrl/api/chat');
     print('Sending tips request to: $uri');
 
+    final List<Map<String, dynamic>> formatted =
+        messages.map((msg) {
+          return {
+            'role': msg['role'] ?? 'user',
+            'content': msg['message'] ?? '',
+          };
+        }).toList();
+
+    // Add the new message to the formatted messages
+    formatted.add({'role': 'user', 'content': message});
+
     Map<String, dynamic> data;
 
-    print('Sending text message: $message');
-    print('Current messages: $messages');
+    // print('Sending text message: $message');
+    for (var msg in formatted) {
+      // print the first 10 characters of each message
+      if (msg['content'] != null && msg['content'].length > 20) {
+        print('Message: ${msg['content'].substring(0, 20)}...');
+      } else {
+        print('Message: ${msg['content']}');
+      }
+    }
+
+    // DEBUG: trim to the last 3 messages
+    // if (messages.length > 1) {
+    //   messages = messages.sublist(messages.length - 1);
+    //   print('Trimmed messages to last 3: $messages');
+    // }
+
+    // int messagesWordCount = 0;
+    // for (var msg in messages) {
+    //   // if the message is too long, truncate it
+    //   if (msg["message"].length > 50) {
+    //     msg["message"] = msg["message"].substring(0, 50) + '...';
+    //   }
+    //   messagesWordCount += (msg["message"] as String).split(' ').length;
+    // }
+    // print('Total word count in messages: $messagesWordCount');
 
     final response = await http.post(
       uri,
@@ -147,9 +207,11 @@ class _RecscreenState extends State<Recscreen> {
       body: jsonEncode({
         // 'model': 'qwen3:1.7b',
         // 'model': 'qwen2.5vl:3b',
-        'model': 'gemma3n:e2b',
+        // 'model': 'gemma3n:e2b',
+        'model': 'gemma3:1b',
 
-        'messages': messages,
+        // 'messages': messages,
+        'messages': formatted,
         'stream': false,
       }),
     );
@@ -164,6 +226,7 @@ class _RecscreenState extends State<Recscreen> {
       return {
         'error': 'Failed to send message',
         'statusCode': response.statusCode,
+        'response': response.body,
       };
     }
   }
@@ -180,6 +243,17 @@ class _RecscreenState extends State<Recscreen> {
 
   @override
   Widget build(BuildContext context) {
+    // pick out a tip from the common tips list
+    int randomIndex = 0;
+    String randomTip = '';
+    if (commonTips.isNotEmpty) {
+      randomIndex = DateTime.now().millisecondsSinceEpoch % commonTips.length;
+      randomTip = commonTips[randomIndex];
+    } else {
+      randomTip = 'No tips available at the moment.';
+      print('No common tips available to display.');
+    }
+
     return Scaffold(
       // appBar: AppBar(
       //   title: const Text('Home Screen'),
@@ -215,12 +289,10 @@ class _RecscreenState extends State<Recscreen> {
                                     247,
                                     242,
                                   ),
-                                  child: const Center(
+                                  child: Center(
                                     child: Padding(
                                       padding: EdgeInsets.all(8.0),
-                                      child: Text(
-                                        'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-                                      ),
+                                      child: MarkdownWidget(data: randomTip),
                                     ),
                                   ),
                                 ),

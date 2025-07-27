@@ -31,6 +31,21 @@ class _HelpscreenState extends State<Helpscreen> {
 
   String? pendingImagePath;
 
+  Future<void> saveMessagePosition(Message message) async {
+    final prefs = await SharedPreferences.getInstance();
+    // save to a string list called 'messagePositions'
+    final List<String> messagePositions =
+        prefs.getStringList('messagePositions') ?? [];
+    final String position = jsonEncode({
+      'id': message.id,
+      'createdAt': message.createdAt.toIso8601String(),
+      'sentBy': message.sentBy,
+      'message': message.message,
+    });
+    messagePositions.add(position);
+    await prefs.setStringList('messagePositions', messagePositions);
+  }
+
   // TODO: consider optimisations for large message history
 
   // Function to save message history to SharedPreferences
@@ -663,20 +678,24 @@ class _HelpscreenState extends State<Helpscreen> {
               ),
             ),
             replyPopupConfig: ReplyPopupConfiguration(
+              // TODO: add a pass through gesture detector to catch when this pops up so we can show custom text instead of More, Report, and Reply
               backgroundColor: theme.replyPopupColor,
-              buttonTextStyle: TextStyle(color: theme.replyPopupButtonColor),
+              buttonTextStyle: TextStyle(color: theme.replyPopupColor),
               topBorderColor: theme.replyPopupTopBorderColor,
               onMoreTap: (Message message, bool isReplying) {
                 /// Do something when more button is tapped
                 debugPrint('More tapped for message: ${message.message}');
+                saveMessagePosition(message);
               },
               onReplyTap: (Message message) {
                 /// Do something when reply button is tapped
                 debugPrint('Reply tapped for message: ${message.message}');
+                saveMessagePosition(message);
               },
               onReportTap: (message) {
                 /// Do something when report button is tapped
                 debugPrint('Report tapped for message: ${message.message}');
+                saveMessagePosition(message);
               },
             ),
             reactionPopupConfig: ReactionPopupConfiguration(
