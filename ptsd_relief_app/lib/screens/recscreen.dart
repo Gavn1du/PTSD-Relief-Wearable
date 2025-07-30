@@ -30,6 +30,7 @@ class _RecscreenState extends State<Recscreen> {
   String ollamaUrl = "http://localhost:11434";
   List<Map<String, dynamic>> messages = [];
   List<String> commonTips = [];
+  List<Map<String, dynamic>> savedChats = [];
 
   Future<void> storeLastTipRequest() async {
     // store the common tips list and the date and time when it was retrieved
@@ -51,8 +52,12 @@ class _RecscreenState extends State<Recscreen> {
 
   Future<void> loadCommonTips() async {
     final prefs = await SharedPreferences.getInstance();
-    final List<String>? annotatedTips = prefs.getStringList('commonTips');
+    List<String>? annotatedTips = prefs.getStringList('commonTips');
     print('Annotated tips loaded: $annotatedTips');
+
+    // JUST FOR DEBUGGING: set annotatedTips to null to force regeneration
+    // annotatedTips = null;
+
     if (annotatedTips != null && annotatedTips.length > 1) {
       commonTips = [];
       for (var annotatedTip in annotatedTips) {
@@ -155,6 +160,18 @@ class _RecscreenState extends State<Recscreen> {
     }
   }
 
+  Future<void> loadMessagePositions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> messagePositions =
+        prefs.getStringList('messagePositions') ?? [];
+    // print('Loaded message positions: $messagePositions');
+    savedChats =
+        messagePositions
+            .map((position) => jsonDecode(position) as Map<String, dynamic>)
+            .toList();
+    print('Saved chats loaded: $savedChats');
+  }
+
   Future<Map<String, dynamic>> sendChatMessage(String message) async {
     // Load message history from SharedPreferences
     await loadMessageHistory();
@@ -205,9 +222,8 @@ class _RecscreenState extends State<Recscreen> {
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        // 'model': 'qwen3:1.7b',
+        // 'model': 'deepseek-r1:1.5b',
         // 'model': 'qwen2.5vl:3b',
-        // 'model': 'gemma3n:e2b',
         'model': 'gemma3:1b',
 
         // 'messages': messages,
@@ -237,6 +253,11 @@ class _RecscreenState extends State<Recscreen> {
     // Load common tips when the screen is initialized
     loadCommonTips().then((_) {
       print('Common tips loaded: $commonTips');
+      setState(() {});
+    });
+
+    loadMessagePositions().then((_) {
+      print('Message positions loaded');
       setState(() {});
     });
   }
@@ -319,9 +340,10 @@ class _RecscreenState extends State<Recscreen> {
                           ),
                         ),
                         Expanded(
-                          child: ListView(
-                            children: [
-                              Card(
+                          child: ListView.builder(
+                            itemCount: savedChats.length,
+                            itemBuilder: (context, index) {
+                              return Card(
                                 color: const Color.fromARGB(255, 242, 247, 242),
                                 child: InkWell(
                                   onDoubleTap: () {
@@ -333,18 +355,20 @@ class _RecscreenState extends State<Recscreen> {
                                   child: SizedBox(
                                     width: SizeConfig.horizontal! * 90,
                                     height: SizeConfig.vertical! * 20,
-                                    child: const Center(
+                                    child: Center(
                                       child: Padding(
                                         padding: EdgeInsets.all(8.0),
-                                        child: Text(
-                                          'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.',
+                                        child: MarkdownWidget(
+                                          data:
+                                              savedChats[index]['message']
+                                                  .toString(),
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              );
+                            },
                           ),
                         ),
                       ],

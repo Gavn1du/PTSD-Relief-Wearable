@@ -38,12 +38,40 @@ class _HelpscreenState extends State<Helpscreen> {
         prefs.getStringList('messagePositions') ?? [];
     final String position = jsonEncode({
       'id': message.id,
-      'createdAt': message.createdAt.toIso8601String(),
+      // 'createdAt': message.createdAt.toIso8601String(),
       'sentBy': message.sentBy,
       'message': message.message,
     });
+
+    // Check for duplicates by checking message ID
+    if (messagePositions.any((pos) => jsonDecode(pos)['id'] == message.id)) {
+      print('Duplicate message position found, not saving: $position');
+      return;
+    }
+
     messagePositions.add(position);
+
+    // DEBUG: clear the message positions
+    // messagePositions.clear();
+
     await prefs.setStringList('messagePositions', messagePositions);
+  }
+
+  Future<void> deleteMessagePosition(String messageId) async {
+    final prefs = await SharedPreferences.getInstance();
+    // save to a string list called 'messagePositions'
+    final List<String> messagePositions =
+        prefs.getStringList('messagePositions') ?? [];
+
+    // Remove the message with the given ID
+    final updatedPositions =
+        messagePositions
+            .where((pos) => jsonDecode(pos)['id'] != messageId)
+            .toList();
+
+    print('Messages after deletion: $updatedPositions');
+
+    await prefs.setStringList('messagePositions', updatedPositions);
   }
 
   // TODO: consider optimisations for large message history
@@ -690,12 +718,12 @@ class _HelpscreenState extends State<Helpscreen> {
               onReplyTap: (Message message) {
                 /// Do something when reply button is tapped
                 debugPrint('Reply tapped for message: ${message.message}');
-                saveMessagePosition(message);
+                // saveMessagePosition(message);
               },
               onReportTap: (message) {
                 /// Do something when report button is tapped
                 debugPrint('Report tapped for message: ${message.message}');
-                saveMessagePosition(message);
+                deleteMessagePosition(message.id);
               },
             ),
             reactionPopupConfig: ReactionPopupConfiguration(
