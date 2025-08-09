@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "905244265508",
+    "firebase_url": "https://ptsd-app-3ba18-default-rtdb.firebaseio.com",
+    "project_id": "ptsd-app-3ba18",
+    "storage_bucket": "ptsd-app-3ba18.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:905244265508:android:3593ef30efe766ce57dcb1",
+        "android_client_info": {
+          "package_name": "com.example.ptsd_relief_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjM14jaN1s8_Up5Ob957MPlKTs98foxCc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:905244265508:android:3f14caaad2d03f3c57dcb1",
+        "android_client_info": {
+          "package_name": "com.gavin.ptsd_relief"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjM14jaN1s8_Up5Ob957MPlKTs98foxCc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
