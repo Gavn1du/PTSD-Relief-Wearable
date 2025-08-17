@@ -14,5 +14,5 @@ var routes = {
   '/rec': (context) => const Recscreen(),
   '/home': (context) => const Homescreen(),
   '/login': (context) => const Loginscreen(),
-  // '/signup': (context) => const Signupscreen(),
+  '/signup': (context) => const Signupscreen(),
 };
