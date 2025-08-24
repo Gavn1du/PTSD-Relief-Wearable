@@ -1,6 +1,26 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
+import 'dart:convert';
 
-class Data {
+class Data extends ChangeNotifier {
+  Future<void> saveFirebaseData(String key, Map<String, dynamic> value) async {
+    final prefs = await SharedPreferences.getInstance();
+    // Convert the map to a JSON string
+    final jsonString = jsonEncode(value);
+    await prefs.setString(key, jsonString);
+    notifyListeners();
+  }
+
+  static Future<Map<String, dynamic>?> getFirebaseData(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(key);
+    if (jsonString != null) {
+      final Map<String, dynamic> data = jsonDecode(jsonString);
+      return data;
+    }
+    return null;
+  }
+
   static Future<void> saveStringData(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);

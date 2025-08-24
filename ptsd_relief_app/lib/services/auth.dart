@@ -3,6 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 
 class Auth {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final User? user = FirebaseAuth.instance.currentUser;
 
   // sign up
   Future<User?> signUp(String email, String password, int accountType) async {
@@ -24,7 +25,18 @@ class Auth {
       DatabaseReference userRef = FirebaseDatabase.instance.ref().child(
         'users/${user?.uid}',
       );
-      await userRef.set({'type': accountTypeStr});
+
+      switch (accountType) {
+        case 0:
+          await userRef.set({'patients': [], 'type': accountTypeStr});
+          break;
+        case 1:
+          await userRef.set({'status': 'healthy', 'type': accountTypeStr});
+          break;
+        case 2:
+          await userRef.set({'type': accountTypeStr});
+          break;
+      }
 
       return user;
     } catch (e) {

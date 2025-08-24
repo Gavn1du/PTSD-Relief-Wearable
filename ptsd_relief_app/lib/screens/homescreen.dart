@@ -6,6 +6,7 @@ import 'package:ptsd_relief_app/components/app_colors.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ptsd_relief_app/services/data.dart';
 
 class BPMData {
   final DateTime time;
@@ -22,6 +23,8 @@ class Homescreen extends StatefulWidget {
 }
 
 class _HomescreenState extends State<Homescreen> {
+  Map<String, dynamic> firebaseData = {};
+
   late final double nowMillis;
   late final double oneHourAgoMillis;
   late final List<FlSpot> timeSpots;
@@ -173,6 +176,14 @@ class _HomescreenState extends State<Homescreen> {
   @override
   void initState() {
     super.initState();
+
+    // get the current firebase data
+    Data.getFirebaseData("data").then((data) {
+      setState(() {
+        if (data != null) firebaseData = data;
+      });
+    });
+
     final now = DateTime.now();
     nowMillis = now.millisecondsSinceEpoch.toDouble();
     oneHourAgoMillis =

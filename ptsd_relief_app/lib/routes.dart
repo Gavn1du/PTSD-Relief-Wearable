@@ -5,10 +5,11 @@ import 'package:ptsd_relief_app/screens/recscreen.dart';
 import 'package:ptsd_relief_app/screens/splashscreen.dart';
 import 'package:ptsd_relief_app/screens/loginscreen.dart';
 import 'package:ptsd_relief_app/screens/signupscreen.dart';
+import 'package:ptsd_relief_app/initial.dart';
 
 var routes = {
   // '/': (context) => const Splashscreen(),
-  '/': (context) => const Loginscreen(),
+  '/': (context) => const Initial(),
   '/history': (context) => const Historyscreen(),
   '/help': (context) => const Helpscreen(),
   '/rec': (context) => const Recscreen(),
