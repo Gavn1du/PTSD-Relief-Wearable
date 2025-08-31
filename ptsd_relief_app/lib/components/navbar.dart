@@ -3,12 +3,14 @@ import 'package:ptsd_relief_app/screens/homescreen.dart';
 import 'package:ptsd_relief_app/screens/historyscreen.dart';
 import 'package:ptsd_relief_app/screens/recscreen.dart';
 import 'package:ptsd_relief_app/screens/helpscreen.dart';
+import 'package:ptsd_relief_app/screens/addpatientscreen.dart';
 
 // ignore: must_be_immutable
 class Navbar extends StatefulWidget {
-  Navbar({super.key, required this.currentIndex});
+  Navbar({super.key, required this.currentIndex, this.accountType = "patient"});
 
   int currentIndex;
+  String accountType;
 
   @override
   State<Navbar> createState() => _NavbarState();
@@ -40,7 +42,11 @@ class _NavbarState extends State<Navbar> {
               case 1:
                 Navigator.pushReplacement(
                   context,
-                  _noAnimationRoute(const Historyscreen()),
+                  _noAnimationRoute(
+                    (widget.accountType == 'patient')
+                        ? const Historyscreen()
+                        : Addpatientscreen(),
+                  ),
                 );
                 break;
               case 2:
@@ -60,12 +66,30 @@ class _NavbarState extends State<Navbar> {
         });
       },
       indicatorColor: Colors.amber,
-      destinations: const <Widget>[
-        NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
-        NavigationDestination(icon: Icon(Icons.history), label: 'History'),
-        NavigationDestination(icon: Icon(Icons.lightbulb), label: 'Tips'),
-        NavigationDestination(icon: Icon(Icons.mode_comment), label: 'Chat'),
-      ],
+      destinations:
+          (widget.accountType == 'patient')
+              ? const <Widget>[
+                NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
+                NavigationDestination(
+                  icon: Icon(Icons.history),
+                  label: 'History',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.lightbulb),
+                  label: 'Tips',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.mode_comment),
+                  label: 'Chat',
+                ),
+              ]
+              : const <Widget>[
+                NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
+                NavigationDestination(
+                  icon: Icon(Icons.person_add),
+                  label: 'Add Patient',
+                ),
+              ],
     );
   }
 }

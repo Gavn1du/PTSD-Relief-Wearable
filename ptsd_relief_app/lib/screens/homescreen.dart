@@ -7,6 +7,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ptsd_relief_app/services/data.dart';
+import 'package:ptsd_relief_app/components/patient_card.dart';
 
 class BPMData {
   final DateTime time;
@@ -24,6 +25,8 @@ class Homescreen extends StatefulWidget {
 
 class _HomescreenState extends State<Homescreen> {
   Map<String, dynamic> firebaseData = {};
+
+  int account_type = 0; // 0 = individual account, 1 = nurse, 2 = patient
 
   late final double nowMillis;
   late final double oneHourAgoMillis;
@@ -181,6 +184,16 @@ class _HomescreenState extends State<Homescreen> {
     Data.getFirebaseData("data").then((data) {
       setState(() {
         if (data != null) firebaseData = data;
+
+        if (firebaseData.containsKey('type')) {
+          if (firebaseData['type'] == 'nurse') {
+            account_type = 1;
+          } else if (firebaseData['type'] == 'patient') {
+            account_type = 2;
+          } else {
+            account_type = 0;
+          }
+        }
       });
     });
 
@@ -242,87 +255,101 @@ class _HomescreenState extends State<Homescreen> {
       // ),
       body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: SizeConfig.vertical! * 6,
-                width: SizeConfig.horizontal! * 80,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        Text(
-                          currentBPM.toString(),
-                          style: TextStyle(fontSize: 20),
-                        ),
-                        Text('BPM'),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: SizeConfig.horizontal! * 80,
-                width: SizeConfig.horizontal! * 80,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: LineChart(mainData()),
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: SizeConfig.horizontal! * 80,
-                width: SizeConfig.horizontal! * 80,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(13.0),
-                    child:
-                        (sortedBPMData.isNotEmpty)
-                            ? ListView.builder(
-                              itemCount: sortedBPMData.length,
-                              itemBuilder: (context, index) {
-                                final bpmData = sortedBPMData[index];
-                                return RecommendationCard(
-                                  bpm: bpmData.bpm,
-                                  time: bpmData.time,
-                                );
-                              },
-                            )
-                            : Center(
-                              child: Text(
-                                'No BPM history available',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  color: Colors.black,
+          child:
+              (account_type == 1)
+                  ? ListView(
+                    children: [
+                      PatientCard(
+                        name: "Dave",
+                        location: "33.693,-117.767",
+                        heartRate: 67,
+                      ),
+                    ],
+                  )
+                  : Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: SizeConfig.vertical! * 6,
+                        width: SizeConfig.horizontal! * 80,
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              children: [
+                                Text(
+                                  currentBPM.toString(),
+                                  style: TextStyle(fontSize: 20),
                                 ),
-                              ),
+                                Text('BPM'),
+                              ],
                             ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: SizeConfig.horizontal! * 80,
+                        width: SizeConfig.horizontal! * 80,
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: LineChart(mainData()),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: SizeConfig.horizontal! * 80,
+                        width: SizeConfig.horizontal! * 80,
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(13.0),
+                            child:
+                                (sortedBPMData.isNotEmpty)
+                                    ? ListView.builder(
+                                      itemCount: sortedBPMData.length,
+                                      itemBuilder: (context, index) {
+                                        final bpmData = sortedBPMData[index];
+                                        return RecommendationCard(
+                                          bpm: bpmData.bpm,
+                                          time: bpmData.time,
+                                        );
+                                      },
+                                    )
+                                    : Center(
+                                      child: Text(
+                                        'No BPM history available',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                    ),
+                          ),
+                        ),
+                      ),
+                      // SizedBox(
+                      //   height: SizeConfig.vertical! * 6,
+                      //   width: SizeConfig.horizontal! * 80,
+                      //   child: Card(
+                      //     child: Padding(
+                      //       padding: const EdgeInsets.all(8.0),
+                      //       child: Row(
+                      //         children: [
+                      //           Text('67', style: TextStyle(fontSize: 20)),
+                      //           Text('BPM'),
+                      //         ],
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                    ],
                   ),
-                ),
-              ),
-              // SizedBox(
-              //   height: SizeConfig.vertical! * 6,
-              //   width: SizeConfig.horizontal! * 80,
-              //   child: Card(
-              //     child: Padding(
-              //       padding: const EdgeInsets.all(8.0),
-              //       child: Row(
-              //         children: [
-              //           Text('67', style: TextStyle(fontSize: 20)),
-              //           Text('BPM'),
-              //         ],
-              //       ),
-              //     ),
-              //   ),
-              // ),
-            ],
-          ),
         ),
       ),
-      bottomNavigationBar: Navbar(currentIndex: 0),
+      bottomNavigationBar: Navbar(
+        currentIndex: 0,
+        accountType: (account_type == 1) ? 'nurse' : 'patient',
+      ),
     );
   }
 }
