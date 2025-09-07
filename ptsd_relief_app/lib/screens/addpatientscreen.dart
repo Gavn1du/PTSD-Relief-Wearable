@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ptsd_relief_app/services/data.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
 
 class Addpatientscreen extends StatefulWidget {
@@ -20,8 +21,15 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
               child: TextField(
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
-                  labelText: 'Patient ID',
+                  labelText: 'Patient Name',
                 ),
+                onChanged: (value) {
+                  // Handle search logic here
+                  Data.searchPatientsByName(value).then((results) {
+                    // Update the UI with search results
+                    print(results);
+                  });
+                },
               ),
             ),
 
@@ -29,7 +37,7 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
               child: ListView(
                 children: [
                   ListTile(
-                    title: Text('Patient 1'),
+                    title: Text('Jack Smith'),
                     subtitle: Text('ID: 12345'),
                     trailing: Icon(Icons.add),
                   ),

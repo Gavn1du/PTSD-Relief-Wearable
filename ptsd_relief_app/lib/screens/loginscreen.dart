@@ -9,6 +9,9 @@ class Loginscreen extends StatefulWidget {
 }
 
 class _LoginscreenState extends State<Loginscreen> {
+  TextEditingController emailController = TextEditingController();
+  TextEditingController passwordController = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -21,6 +24,7 @@ class _LoginscreenState extends State<Loginscreen> {
             Column(
               children: [
                 TextField(
+                  controller: emailController,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(),
                     hintText: 'Email',
@@ -29,6 +33,7 @@ class _LoginscreenState extends State<Loginscreen> {
                 ),
                 SizedBox(height: 10),
                 TextField(
+                  controller: passwordController,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(),
                     hintText: 'Password',
@@ -38,7 +43,11 @@ class _LoginscreenState extends State<Loginscreen> {
                 SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () {
-                    // Auth().signIn()
+                    Auth()
+                        .signIn(emailController.text, passwordController.text)
+                        .then((_) {
+                          Navigator.pushNamed(context, '/home');
+                        });
                   },
                   child: Text("Login"),
                 ),

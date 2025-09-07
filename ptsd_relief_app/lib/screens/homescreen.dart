@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
+import 'package:ptsd_relief_app/services/auth.dart';
 import 'package:ptsd_relief_app/size_config.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:ptsd_relief_app/components/app_colors.dart';
@@ -181,7 +182,8 @@ class _HomescreenState extends State<Homescreen> {
     super.initState();
 
     // get the current firebase data
-    Data.getFirebaseData("data").then((data) {
+    var uid = Auth().user?.uid;
+    Data.getFirebaseData("users/$uid").then((data) {
       setState(() {
         if (data != null) firebaseData = data;
 

@@ -37,7 +37,7 @@ class Initial extends StatelessWidget {
             userData = Map<String, dynamic>.from(dataSnapshot.value as Map);
             print("User data changed: $userData");
           }
-          Data().saveFirebaseData("data", userData);
+          Data().saveFirebaseDataToSharedPref("data", userData);
         }
 
         return const Homescreen();

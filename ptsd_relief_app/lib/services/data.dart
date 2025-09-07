@@ -1,9 +1,52 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:ptsd_relief_app/services/auth.dart';
 import 'dart:convert';
 
 class Data extends ChangeNotifier {
   Future<void> saveFirebaseData(String key, Map<String, dynamic> value) async {
+    final ref = FirebaseDatabase.instance.ref();
+    await ref.child(key).set(value);
+    notifyListeners();
+  }
+
+  static Future<Map<String, dynamic>?> getFirebaseData(String key) async {
+    final ref = FirebaseDatabase.instance.ref();
+    final snapshot = await ref.child(key).get();
+    if (snapshot.exists) {
+      return Map<String, dynamic>.from(snapshot.value as Map);
+    }
+    return null;
+  }
+
+  Future<bool> setPatientName(String name) async {
+    try {
+      if (name.isEmpty) {
+        return false;
+      }
+    } catch (e) {
+      return false;
+    }
+    final ref = FirebaseDatabase.instance.ref();
+    final uid = Auth().user?.uid;
+    await ref.child('users/$uid/name').set(name);
+
+    Map<String, dynamic> userDirectory = {
+      'displayName': name,
+      'nameLower': name.toLowerCase(),
+    };
+
+    await ref.child('userDirectory/$uid').set(userDirectory);
+
+    return true;
+    notifyListeners();
+  }
+
+  Future<void> saveFirebaseDataToSharedPref(
+    String key,
+    Map<String, dynamic> value,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     // Convert the map to a JSON string
     final jsonString = jsonEncode(value);
@@ -11,7 +54,9 @@ class Data extends ChangeNotifier {
     notifyListeners();
   }
 
-  static Future<Map<String, dynamic>?> getFirebaseData(String key) async {
+  static Future<Map<String, dynamic>?> getFirebaseDataFromSharedPref(
+    String key,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(key);
     if (jsonString != null) {
@@ -19,6 +64,28 @@ class Data extends ChangeNotifier {
       return data;
     }
     return null;
+  }
+
+  // Patient Search Function (Nurse only)
+  static Future<List<Map<String, dynamic>>> searchPatientsByName(
+    String query,
+  ) async {
+    final ref = FirebaseDatabase.instance.ref();
+    final snapshot =
+        await ref
+            .child('userDirectory')
+            .orderByChild('nameLower')
+            .startAt(query.toLowerCase())
+            .endAt('${query.toLowerCase()}\uf8ff')
+            .get();
+    List<Map<String, dynamic>> results = [];
+    if (snapshot.exists) {
+      final data = snapshot.value as Map<dynamic, dynamic>;
+      data.forEach((key, value) {
+        results.add(Map<String, dynamic>.from(value));
+      });
+    }
+    return results;
   }
 
   static Future<void> saveStringData(String key, String value) async {

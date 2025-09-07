@@ -4,6 +4,7 @@ import 'package:ptsd_relief_app/screens/historyscreen.dart';
 import 'package:ptsd_relief_app/screens/recscreen.dart';
 import 'package:ptsd_relief_app/screens/helpscreen.dart';
 import 'package:ptsd_relief_app/screens/addpatientscreen.dart';
+import 'package:ptsd_relief_app/screens/settingsscreen.dart';
 
 // ignore: must_be_immutable
 class Navbar extends StatefulWidget {
@@ -52,13 +53,23 @@ class _NavbarState extends State<Navbar> {
               case 2:
                 Navigator.pushReplacement(
                   context,
-                  _noAnimationRoute(const Recscreen()),
+                  _noAnimationRoute(
+                    (widget.accountType == 'patient')
+                        ? const Recscreen()
+                        : const SettingsScreen(),
+                  ),
                 );
                 break;
               case 3:
                 Navigator.pushReplacement(
                   context,
                   _noAnimationRoute(const Helpscreen()),
+                );
+                break;
+              case 4:
+                Navigator.pushReplacement(
+                  context,
+                  _noAnimationRoute(const SettingsScreen()),
                 );
                 break;
             }
@@ -82,12 +93,20 @@ class _NavbarState extends State<Navbar> {
                   icon: Icon(Icons.mode_comment),
                   label: 'Chat',
                 ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings),
+                  label: 'Settings',
+                ),
               ]
               : const <Widget>[
                 NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
                 NavigationDestination(
                   icon: Icon(Icons.person_add),
                   label: 'Add Patient',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings),
+                  label: 'Settings',
                 ),
               ],
     );
