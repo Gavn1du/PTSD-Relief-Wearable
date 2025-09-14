@@ -10,6 +10,8 @@ class Addpatientscreen extends StatefulWidget {
 }
 
 class _AddpatientscreenState extends State<Addpatientscreen> {
+  List<Map<String, dynamic>> searchResults = [];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -24,24 +26,64 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
                   labelText: 'Patient Name',
                 ),
                 onChanged: (value) {
+                  // TODO: TEST THIS
                   // Handle search logic here
                   Data.searchPatientsByName(value).then((results) {
                     // Update the UI with search results
                     print(results);
+                    Data.getFirebaseDataFromSharedPref('data').then((data) {
+                      List<String> existingPatientIds = data?['patients'];
+                      results.removeWhere(
+                        (patient) =>
+                            existingPatientIds.contains(patient['uid']),
+                      );
+
+                      setState(() {
+                        searchResults = results;
+                      });
+                    });
                   });
                 },
               ),
             ),
 
             Expanded(
-              child: ListView(
-                children: [
-                  ListTile(
-                    title: Text('Jack Smith'),
-                    subtitle: Text('ID: 12345'),
-                    trailing: Icon(Icons.add),
-                  ),
-                ],
+              child: ListView.builder(
+                itemCount: searchResults.length,
+                itemBuilder: (context, index) {
+                  final patient = searchResults[index];
+                  return ListTile(
+                    title: Text(patient['displayName'] ?? patient['uid']),
+                    subtitle: Text('ID: ${patient['uid']}'),
+                    trailing: IconButton(
+                      icon: Icon(Icons.add),
+                      onPressed: () {
+                        // Handle add patient logic here
+                        print('Add patient: ${patient['uid']}');
+                        Data.addPatient(patient['uid']).then((success) {
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Patient added successfully'),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to add patient')),
+                            );
+                          }
+                        });
+                      },
+                    ),
+                  );
+                },
+                // children: [
+                //   ListTile(
+                //     title: Text('Jack Smith'),
+                //     subtitle: Text('ID: 12345'),
+                //     trailing: Icon(Icons.add),
+                //   ),
+                // ],
               ),
             ),
           ],

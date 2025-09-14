@@ -38,9 +38,8 @@ class Data extends ChangeNotifier {
     };
 
     await ref.child('userDirectory/$uid').set(userDirectory);
-
-    return true;
     notifyListeners();
+    return true;
   }
 
   Future<void> saveFirebaseDataToSharedPref(
@@ -82,10 +81,69 @@ class Data extends ChangeNotifier {
     if (snapshot.exists) {
       final data = snapshot.value as Map<dynamic, dynamic>;
       data.forEach((key, value) {
+        value['uid'] = key;
         results.add(Map<String, dynamic>.from(value));
       });
     }
     return results;
+  }
+
+  static Future<bool> addPatient(String uid) async {
+    // check if self is nurse
+    final data = await getFirebaseDataFromSharedPref('data');
+    if (data == null || data['type'] != 'nurse') {
+      return false;
+    }
+    if (uid.isEmpty) {
+      return false;
+    }
+
+    final ref = FirebaseDatabase.instance.ref();
+    final nurseUid = Auth().user?.uid;
+    // get existing patients list of nurse
+    final snapshot = await ref.child('users/$nurseUid/patients').get();
+    List<dynamic> patients = [];
+    if (snapshot.exists) {
+      patients = List<dynamic>.from(snapshot.value as List);
+    }
+    // check if patient already exists
+    if (patients.contains(uid)) {
+      return false;
+    }
+    patients.add(uid);
+
+    // add to patients list of nurse
+    await ref.child('users/$nurseUid/patients').set(patients);
+    return true;
+  }
+
+  static Future<bool> removePatient(String uid) async {
+    // check if self is nurse
+    final data = await getFirebaseDataFromSharedPref('data');
+    if (data == null || data['type'] != 'nurse') {
+      return false;
+    }
+    if (uid.isEmpty) {
+      return false;
+    }
+
+    final ref = FirebaseDatabase.instance.ref();
+    final nurseUid = Auth().user?.uid;
+    // get existing patients list of nurse
+    final snapshot = await ref.child('users/$nurseUid/patients').get();
+    List<dynamic> patients = [];
+    if (snapshot.exists) {
+      patients = List<dynamic>.from(snapshot.value as List);
+    }
+    // check if patient exists
+    if (!patients.contains(uid)) {
+      return false;
+    }
+    patients.remove(uid);
+
+    // remove from patients list of nurse
+    await ref.child('users/$nurseUid/patients').set(patients);
+    return true;
   }
 
   static Future<void> saveStringData(String key, String value) async {
