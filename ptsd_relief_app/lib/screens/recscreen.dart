@@ -27,7 +27,7 @@ class Recscreen extends StatefulWidget {
 }
 
 class _RecscreenState extends State<Recscreen> {
-  String ollamaUrl = "http://localhost:11434";
+  String ollamaUrl = "http://192.168.1.162:11434";
   List<Map<String, dynamic>> messages = [];
   List<String> commonTips = [];
   List<Map<String, dynamic>> savedChats = [];

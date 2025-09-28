@@ -112,7 +112,7 @@ class _HelpscreenState extends State<Helpscreen> {
   }
 
   // ===== OLLAMA TEST FUNCTIONS =====
-  String ollamaUrl = "http://localhost:11434";
+  String ollamaUrl = "http://192.168.1.162:11434";
 
   Future<void> sendPrompt(String prompt) async {
     final uri = Uri.parse('$ollamaUrl/api/generate');
@@ -734,6 +734,17 @@ class _HelpscreenState extends State<Helpscreen> {
               backgroundColor: theme.reactionPopupColor,
             ),
             messageConfig: MessageConfiguration(
+              // Markdown
+              customMessageBuilder: (Message message) {
+                if (message.messageType != MessageType.text) {
+                  return const SizedBox.shrink();
+                }
+                print('Rendering markdown for message: ${message.message}');
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: MarkdownWidget(data: message.message),
+                );
+              },
               messageReactionConfig: MessageReactionConfiguration(
                 backgroundColor: theme.messageReactionBackGroundColor,
                 borderColor: theme.messageReactionBackGroundColor,

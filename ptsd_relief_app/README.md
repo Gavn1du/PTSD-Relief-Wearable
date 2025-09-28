@@ -28,6 +28,7 @@ ollama serve
 ```bash
 curl http://localhost:11434
 ```
+Note: current rpi server is 192.168.1.162
 
 ## Pull and Manage Models
 ```bash
