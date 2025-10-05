@@ -58,8 +58,10 @@ class Data extends ChangeNotifier {
   ) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(key);
+    print("IS THIS THE ERROR?: $jsonString");
     if (jsonString != null) {
       final Map<String, dynamic> data = jsonDecode(jsonString);
+      print("THIS IS THE DATA: $data");
       return data;
     }
     return null;

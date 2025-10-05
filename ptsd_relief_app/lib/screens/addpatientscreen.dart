@@ -30,9 +30,8 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
                   // Handle search logic here
                   Data.searchPatientsByName(value).then((results) {
                     // Update the UI with search results
-                    print(results);
                     Data.getFirebaseDataFromSharedPref('data').then((data) {
-                      List<String> existingPatientIds = data?['patients'];
+                      List<String> existingPatientIds = data?['patients'] ?? [];
                       results.removeWhere(
                         (patient) =>
                             existingPatientIds.contains(patient['uid']),
