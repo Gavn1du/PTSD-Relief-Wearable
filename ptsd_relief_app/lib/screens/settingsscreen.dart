@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:ptsd_relief_app/components/theme.dart';
 import 'package:ptsd_relief_app/services/data.dart';
 import 'package:ptsd_relief_app/services/auth.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
@@ -81,6 +83,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text('Change Name'),
                 )
                 : Container(),
+            ElevatedButton(
+              onPressed: () {
+                context.read<ThemeController>().toggle();
+              },
+              child: Text("Toggle Theme"),
+            ),
             SizedBox(height: SizeConfig.vertical! * 40),
             ElevatedButton(
               onPressed: () {

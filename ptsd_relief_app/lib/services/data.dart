@@ -58,35 +58,67 @@ class Data extends ChangeNotifier {
   ) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(key);
-    print("IS THIS THE ERROR?: $jsonString");
     if (jsonString != null) {
       final Map<String, dynamic> data = jsonDecode(jsonString);
-      print("THIS IS THE DATA: $data");
       return data;
     }
     return null;
   }
 
   // Patient Search Function (Nurse only)
+  // static Future<List<Map<String, dynamic>>> searchPatientsByName(
+  //   String query,
+  // ) async {
+  //   final ref = FirebaseDatabase.instance.ref();
+  //   final snapshot =
+  //       await ref
+  //           .child('userDirectory')
+  //           .orderByChild('nameLower')
+  //           .startAt(query.toLowerCase())
+  //           .endAt('${query.toLowerCase()}\uf8ff')
+  //           .get();
+  //   List<Map<String, dynamic>> results = [];
+  //   if (snapshot.exists) {
+  //     final data = snapshot.value as Map<dynamic, dynamic>;
+  //     data.forEach((key, value) {
+  //       value['uid'] = key;
+  //       results.add(Map<String, dynamic>.from(value));
+  //     });
+  //   }
+  //   return results;
+  // }
+
   static Future<List<Map<String, dynamic>>> searchPatientsByName(
     String query,
   ) async {
     final ref = FirebaseDatabase.instance.ref();
     final snapshot =
         await ref
-            .child('userDirectory')
-            .orderByChild('nameLower')
-            .startAt(query.toLowerCase())
-            .endAt('${query.toLowerCase()}\uf8ff')
+            .child('users')
+            .orderByChild('name')
+            .startAt(query)
+            .endAt('$query\uf8ff')
             .get();
     List<Map<String, dynamic>> results = [];
     if (snapshot.exists) {
-      final data = snapshot.value as Map<dynamic, dynamic>;
-      data.forEach((key, value) {
-        value['uid'] = key;
-        results.add(Map<String, dynamic>.from(value));
+      for (final child in snapshot.children) {
+        final val = child.value;
+        if (val is Map) {
+          final user = Map<String, dynamic>.from(val as Map);
+          if (user['type'] == 'patient') {
+            user['uid'] = child.key;
+            results.add(user);
+          }
+        }
+      }
+      // Sort by name, case-insensitive
+      results.sort((a, b) {
+        final na = (a['name'] ?? '').toString();
+        final nb = (b['name'] ?? '').toString();
+        return na.toLowerCase().compareTo(nb.toLowerCase());
       });
     }
+
     return results;
   }
 

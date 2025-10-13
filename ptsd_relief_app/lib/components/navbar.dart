@@ -5,6 +5,8 @@ import 'package:ptsd_relief_app/screens/recscreen.dart';
 import 'package:ptsd_relief_app/screens/helpscreen.dart';
 import 'package:ptsd_relief_app/screens/addpatientscreen.dart';
 import 'package:ptsd_relief_app/screens/settingsscreen.dart';
+import 'package:provider/provider.dart';
+import 'package:ptsd_relief_app/components/theme.dart';
 
 // ignore: must_be_immutable
 class Navbar extends StatefulWidget {
@@ -28,6 +30,7 @@ class _NavbarState extends State<Navbar> {
 
   @override
   Widget build(BuildContext context) {
+    final AppTheme theme = context.watch<ThemeController>().value;
     return NavigationBar(
       selectedIndex: widget.currentIndex,
       onDestinationSelected: (int index) {
@@ -76,7 +79,7 @@ class _NavbarState extends State<Navbar> {
           }
         });
       },
-      indicatorColor: Colors.amber,
+      indicatorColor: theme.activeButton,
       destinations:
           (widget.accountType == 'patient')
               ? const <Widget>[

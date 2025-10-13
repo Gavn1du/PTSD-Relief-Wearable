@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ptsd_relief_app/services/data.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
+import 'package:provider/provider.dart';
+import 'package:ptsd_relief_app/components/theme.dart';
 
 class Addpatientscreen extends StatefulWidget {
   const Addpatientscreen({super.key});
@@ -13,7 +15,26 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
   List<Map<String, dynamic>> searchResults = [];
 
   @override
+  void initState() {
+    Data.searchPatientsByName("").then((results) {
+      // Update the UI with search results
+      Data.getFirebaseDataFromSharedPref('data').then((data) {
+        List<String> existingPatientIds = data?['patients'] ?? [];
+        results.removeWhere(
+          (patient) => existingPatientIds.contains(patient['uid']),
+        );
+
+        setState(() {
+          searchResults = results;
+        });
+      });
+    });
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final AppTheme theme = context.watch<ThemeController>().value;
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -21,6 +42,7 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: TextField(
+                style: TextStyle(color: theme.textColor),
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Patient Name',
@@ -52,8 +74,14 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
                 itemBuilder: (context, index) {
                   final patient = searchResults[index];
                   return ListTile(
-                    title: Text(patient['displayName'] ?? patient['uid']),
-                    subtitle: Text('ID: ${patient['uid']}'),
+                    title: Text(
+                      patient['displayName'] ?? patient['uid'],
+                      style: TextStyle(color: theme.textColor),
+                    ),
+                    subtitle: Text(
+                      'ID: ${patient['uid']}',
+                      style: TextStyle(color: theme.textColor),
+                    ),
                     trailing: IconButton(
                       icon: Icon(Icons.add),
                       onPressed: () {

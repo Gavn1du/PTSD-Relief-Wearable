@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ptsd_relief_app/services/auth.dart';
+import 'package:ptsd_relief_app/services/data.dart';
+import 'package:ptsd_relief_app/widgets/button_format.dart';
 import 'package:ptsd_relief_app/widgets/auth_text_field.dart';
 
 class Signupscreen extends StatefulWidget {
@@ -10,6 +12,7 @@ class Signupscreen extends StatefulWidget {
 }
 
 class _SignupscreenState extends State<Signupscreen> {
+  TextEditingController fullNameController = TextEditingController();
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   TextEditingController confirmPasswordController = TextEditingController();
@@ -65,6 +68,20 @@ class _SignupscreenState extends State<Signupscreen> {
               Container(),
               Column(
                 children: [
+                  if (selectedRoleIndex == 1)
+                    AuthTextField(
+                      controller: fullNameController,
+                      hint: "Full Name",
+                      obscureText: false,
+                      changed: onChanged,
+                      validator: (value) {
+                        if (value == null || value == "") {
+                          return "This field cannot be empty.";
+                        }
+                        return null;
+                      },
+                    ),
+                  SizedBox(height: 10),
                   AuthTextField(
                     controller: emailController,
                     hint: "Email",
@@ -133,57 +150,95 @@ class _SignupscreenState extends State<Signupscreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      SizedBox(
-                        width: 120,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                selectedRoleIndex == 0
-                                    ? const Color.fromARGB(255, 122, 182, 231)
-                                    : const Color.fromARGB(255, 241, 241, 241),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              selectedRoleIndex = 0;
-                            });
-                          },
-                          child: Text("Nurse"),
-                        ),
+                      ButtonFormat(
+                        isSelected: selectedRoleIndex == 0,
+                        title: "Nurse",
+                        onPressed: () {
+                          setState(() {
+                            selectedRoleIndex = 0;
+                          });
+                        },
                       ),
-                      SizedBox(
-                        width: 120,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                selectedRoleIndex == 1
-                                    ? const Color.fromARGB(255, 122, 182, 231)
-                                    : const Color.fromARGB(255, 241, 241, 241),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              selectedRoleIndex = 1;
-                            });
-                          },
-                          child: Text("Patient"),
-                        ),
+                      ButtonFormat(
+                        isSelected: selectedRoleIndex == 1,
+                        title: "Patient",
+                        onPressed: () {
+                          setState(() {
+                            selectedRoleIndex = 1;
+                          });
+                        },
                       ),
-                      SizedBox(
-                        width: 120,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                selectedRoleIndex == 2
-                                    ? const Color.fromARGB(255, 122, 182, 231)
-                                    : const Color.fromARGB(255, 241, 241, 241),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              selectedRoleIndex = 2;
-                            });
-                          },
-                          child: Text("Individual"),
-                        ),
+                      ButtonFormat(
+                        isSelected: selectedRoleIndex == 2,
+                        title: "Individual",
+                        onPressed: () {
+                          setState(() {
+                            selectedRoleIndex = 2;
+                          });
+                        },
                       ),
+                      // SizedBox(
+                      //   width: 120,
+                      //   child: ElevatedButton(
+                      //     style: ElevatedButton.styleFrom(
+                      //       backgroundColor:
+                      //           selectedRoleIndex == 0
+                      //               ? const Color.fromARGB(255, 122, 182, 231)
+                      //               : const Color.fromARGB(255, 241, 241, 241),
+                      //       shape: RoundedRectangleBorder(
+                      //         borderRadius: BorderRadius.circular(15),
+                      //       ),
+                      //     ),
+                      //     onPressed: () {
+                      //       setState(() {
+                      //         selectedRoleIndex = 0;
+                      //       });
+                      //     },
+                      //     child: Text(
+                      //       "Nurse",
+                      //       style: TextStyle(
+                      //         color:
+                      //             selectedRoleIndex == 0
+                      //                 ? const Color.fromARGB(255, 252, 252, 252)
+                      //                 : const Color.fromARGB(255, 166, 28, 28),
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                      // SizedBox(
+                      //   width: 120,
+                      //   child: ElevatedButton(
+                      //     style: ElevatedButton.styleFrom(
+                      //       backgroundColor:
+                      //           selectedRoleIndex == 1
+                      //               ? const Color.fromARGB(255, 122, 182, 231)
+                      //               : const Color.fromARGB(255, 241, 241, 241),
+                      //     ),
+                      //     onPressed: () {
+                      //       setState(() {
+                      //         selectedRoleIndex = 1;
+                      //       });
+                      //     },
+                      //     child: Text("Patient"),
+                      //   ),
+                      // ),
+                      // SizedBox(
+                      //   width: 120,
+                      //   child: ElevatedButton(
+                      //     style: ElevatedButton.styleFrom(
+                      //       backgroundColor:
+                      //           selectedRoleIndex == 2
+                      //               ? const Color.fromARGB(255, 122, 182, 231)
+                      //               : const Color.fromARGB(255, 241, 241, 241),
+                      //     ),
+                      //     onPressed: () {
+                      //       setState(() {
+                      //         selectedRoleIndex = 2;
+                      //       });
+                      //     },
+                      //     child: Text("Individual"),
+                      //   ),
+                      // ),
                     ],
                   ),
                   SizedBox(height: 20),
@@ -207,9 +262,15 @@ class _SignupscreenState extends State<Signupscreen> {
                           emailController.text.trim(),
                           passwordController.text,
                           selectedRoleIndex,
+                          fullNameController.text.trim(),
                         );
 
                         if (user != null) {
+                          if (selectedRoleIndex == 1) {
+                            await Data.setPatientName(
+                              fullNameController.text.trim(),
+                            );
+                          }
                           Navigator.pushNamed(context, '/home');
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(

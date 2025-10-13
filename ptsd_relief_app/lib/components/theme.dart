@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
+  final Color? textColor;
+  final Color? activeButton;
   final Color? appBarColor;
   final Color? backArrowColor;
   final Color? backgroundColor;
@@ -57,7 +59,11 @@ class AppTheme {
   final TextStyle? outgoingChatLinkBodyStyle;
   final TextStyle? incomingChatLinkBodyStyle;
 
+  final TextStyle? signupText;
+
   AppTheme({
+    this.textColor,
+    this.activeButton,
     this.cameraIconColor,
     this.galleryIconColor,
     this.flashingCircleDarkColor,
@@ -107,11 +113,15 @@ class AppTheme {
     this.waveformBackgroundColor,
     this.waveColor,
     this.replyMicIconColor,
+    this.signupText,
   });
 }
 
 class DarkTheme extends AppTheme {
   DarkTheme({
+    Color textColor = const Color.fromARGB(255, 255, 255, 255),
+    Color activeButton = const Color.fromARGB(255, 122, 182, 231),
+    TextStyle signupText = const TextStyle(color: Colors.white),
     Color flashingCircleDarkColor = Colors.grey,
     Color flashingCircleBrightColor = const Color(0xffeeeeee),
     TextStyle incomingChatLinkTitleStyle = const TextStyle(color: Colors.black),
@@ -162,6 +172,9 @@ class DarkTheme extends AppTheme {
     Color waveColor = Colors.white,
     Color replyMicIconColor = Colors.white,
   }) : super(
+         textColor: textColor,
+         activeButton: activeButton,
+         signupText: signupText,
          closeIconColor: closeIconColor,
          verticalBarColor: verticalBarColor,
          textFieldBackgroundColor: textFieldBackgroundColor,
@@ -216,6 +229,9 @@ class DarkTheme extends AppTheme {
 
 class LightTheme extends AppTheme {
   LightTheme({
+    Color textColor = const Color.fromARGB(255, 47, 43, 43),
+    Color activeButton = const Color.fromARGB(255, 122, 182, 231),
+    TextStyle signupText = const TextStyle(color: Colors.black),
     Color flashingCircleDarkColor = const Color(0xffEE5366),
     Color flashingCircleBrightColor = const Color(0xffFCD8DC),
     TextStyle incomingChatLinkTitleStyle = const TextStyle(color: Colors.black),
@@ -266,6 +282,9 @@ class LightTheme extends AppTheme {
     Color waveColor = Colors.black,
     Color replyMicIconColor = Colors.black,
   }) : super(
+         textColor: textColor,
+         activeButton: activeButton,
+         signupText: signupText,
          reactionPopupColor: reactionPopupColor,
          closeIconColor: closeIconColor,
          verticalBarColor: verticalBarColor,
@@ -316,4 +335,13 @@ class LightTheme extends AppTheme {
          waveColor: waveColor,
          replyMicIconColor: replyMicIconColor,
        );
+}
+
+class ThemeController extends ValueNotifier<AppTheme> {
+  ThemeController(AppTheme theme) : super(theme);
+
+  void useDark() => value = DarkTheme();
+  void useLight() => value = LightTheme();
+
+  void toggle() => value is DarkTheme ? useLight() : useDark();
 }

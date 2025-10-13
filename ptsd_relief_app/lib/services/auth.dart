@@ -6,7 +6,12 @@ class Auth {
   final User? user = FirebaseAuth.instance.currentUser;
 
   // sign up
-  Future<User?> signUp(String email, String password, int accountType) async {
+  Future<User?> signUp(
+    String email,
+    String password,
+    int accountType,
+    String? fullName,
+  ) async {
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -31,7 +36,11 @@ class Auth {
           await userRef.set({'patients': [], 'type': accountTypeStr});
           break;
         case 1:
-          await userRef.set({'status': 'healthy', 'type': accountTypeStr});
+          await userRef.set({
+            'status': 'healthy',
+            'type': accountTypeStr,
+            'name': fullName,
+          });
           break;
         case 2:
           await userRef.set({'type': accountTypeStr});

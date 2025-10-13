@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:ptsd_relief_app/components/theme.dart';
 import 'package:ptsd_relief_app/services/auth.dart';
 
 class Loginscreen extends StatefulWidget {
@@ -14,6 +16,8 @@ class _LoginscreenState extends State<Loginscreen> {
 
   @override
   Widget build(BuildContext context) {
+    final AppTheme theme = context.watch<ThemeController>().value;
+
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -57,7 +61,7 @@ class _LoginscreenState extends State<Loginscreen> {
               onPressed: () {
                 Navigator.pushNamed(context, '/signup');
               },
-              child: Text("No Account? Sign Up"),
+              child: Text("No Account? Sign Up", style: theme.signupText),
             ),
           ],
         ),

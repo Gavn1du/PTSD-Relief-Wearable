@@ -28,7 +28,6 @@ class _AuthTextFieldState extends State<AuthTextField> {
       controller: widget.controller,
       decoration: InputDecoration(
         border: OutlineInputBorder(),
-
         // enabled: ,
         // focusedBorder: ,
         // errorBorder: ,
