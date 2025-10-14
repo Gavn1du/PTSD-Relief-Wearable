@@ -134,7 +134,7 @@ class DarkTheme extends AppTheme {
     Color textFieldTextColor = Colors.white,
     Color appBarColor = const Color(0xff1d1b25),
     Color backArrowColor = Colors.white,
-    Color backgroundColor = const Color(0xff272336),
+    Color backgroundColor = const Color(0xff201E1F),
     Color replyDialogColor = const Color(0xff272336),
     Color linkPreviewOutgoingChatColor = const Color(0xff272336),
     Color linkPreviewIncomingChatColor = const Color(0xff9f85ff),

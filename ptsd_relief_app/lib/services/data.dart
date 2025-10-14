@@ -65,90 +65,123 @@ class Data extends ChangeNotifier {
     return null;
   }
 
-  // Patient Search Function (Nurse only)
-  // static Future<List<Map<String, dynamic>>> searchPatientsByName(
-  //   String query,
-  // ) async {
-  //   final ref = FirebaseDatabase.instance.ref();
-  //   final snapshot =
-  //       await ref
-  //           .child('userDirectory')
-  //           .orderByChild('nameLower')
-  //           .startAt(query.toLowerCase())
-  //           .endAt('${query.toLowerCase()}\uf8ff')
-  //           .get();
-  //   List<Map<String, dynamic>> results = [];
-  //   if (snapshot.exists) {
-  //     final data = snapshot.value as Map<dynamic, dynamic>;
-  //     data.forEach((key, value) {
-  //       value['uid'] = key;
-  //       results.add(Map<String, dynamic>.from(value));
-  //     });
-  //   }
-  //   return results;
-  // }
+  // Live set of this nurse’s patient UIDs (auto-updates when RTDB changes)
+  static Stream<Set<String>> nursePatientIdsStream() {
+    final nurseUid = Auth().user?.uid;
+    if (nurseUid == null) return const Stream.empty();
 
-  static Future<List<Map<String, dynamic>>> searchPatientsByName(
+    final ref = FirebaseDatabase.instance.ref('users/$nurseUid/patients');
+    return ref.onValue.map((event) {
+      final v = event.snapshot.value;
+      if (v == null) return <String>{};
+      if (v is List) return v.map((e) => e.toString()).toSet();
+      if (v is Map) return v.keys.map((e) => e.toString()).toSet();
+      return <String>{};
+    });
+  }
+
+  /// Query `userDirectory` by name prefix and exclude any UIDs in [excludeUids].
+  /// Assumes userDirectory only contains *patients*.
+  static Future<List<Map<String, dynamic>>> searchDirectoryExcluding(
     String query,
-  ) async {
-    final ref = FirebaseDatabase.instance.ref();
-    final snapshot =
-        await ref
-            .child('users')
-            .orderByChild('name')
-            .startAt(query)
-            .endAt('$query\uf8ff')
-            .get();
-    List<Map<String, dynamic>> results = [];
-    if (snapshot.exists) {
-      for (final child in snapshot.children) {
-        final val = child.value;
-        if (val is Map) {
-          final user = Map<String, dynamic>.from(val as Map);
-          if (user['type'] == 'patient') {
-            user['uid'] = child.key;
-            results.add(user);
-          }
-        }
-      }
-      // Sort by name, case-insensitive
-      results.sort((a, b) {
-        final na = (a['name'] ?? '').toString();
-        final nb = (b['name'] ?? '').toString();
-        return na.toLowerCase().compareTo(nb.toLowerCase());
-      });
-    }
+    Set<String> excludeUids, {
+    int limit = 50,
+  }) async {
+    final q = query.trim().toLowerCase();
 
+    final snap =
+        await FirebaseDatabase.instance
+            .ref('userDirectory')
+            .orderByChild('nameLower')
+            .startAt(q)
+            .endAt('$q\uf8ff')
+            .get();
+
+    final List<Map<String, dynamic>> results = [];
+    if (!snap.exists) return results;
+
+    final data = snap.value;
+    if (data is Map) {
+      for (final e in data.entries) {
+        final uid = e.key.toString();
+        if (excludeUids.contains(uid)) continue;
+
+        final value = Map<String, dynamic>.from(e.value as Map);
+        value['uid'] = uid;
+        results.add(value);
+        if (results.length >= limit) break;
+      }
+    } else if (data is List) {
+      // rare shape fallback
+      for (int i = 0; i < data.length; i++) {
+        final item = data[i];
+        if (item == null) continue;
+        final uid = i.toString();
+        if (excludeUids.contains(uid)) continue;
+
+        final value = Map<String, dynamic>.from(item as Map);
+        value['uid'] = uid;
+        results.add(value);
+        if (results.length >= limit) break;
+      }
+    }
     return results;
   }
 
   static Future<bool> addPatient(String uid) async {
-    // check if self is nurse
-    final data = await getFirebaseDataFromSharedPref('data');
-    if (data == null || data['type'] != 'nurse') {
-      return false;
-    }
-    if (uid.isEmpty) {
-      return false;
-    }
+    try {
+      final data = await getFirebaseDataFromSharedPref('data');
+      if (data == null || (data['type']?.toString().toLowerCase() != 'nurse')) {
+        debugPrint('[addPatient] Not a nurse or prefs missing: $data');
+        return false;
+      }
 
-    final ref = FirebaseDatabase.instance.ref();
-    final nurseUid = Auth().user?.uid;
-    // get existing patients list of nurse
-    final snapshot = await ref.child('users/$nurseUid/patients').get();
-    List<dynamic> patients = [];
-    if (snapshot.exists) {
-      patients = List<dynamic>.from(snapshot.value as List);
-    }
-    // check if patient already exists
-    if (patients.contains(uid)) {
+      if (uid.isEmpty) return false;
+
+      final nurseUid = Auth().user?.uid;
+      if (nurseUid == null) {
+        debugPrint('[addPatient] nurseUid is null (not logged in?)');
+        return false;
+      }
+
+      final ref = FirebaseDatabase.instance.ref('users/$nurseUid/patients');
+
+      final result = await ref.runTransaction((current) {
+        List<String> list;
+
+        // patients can be null, a List, or a Map
+        // if there are no patients for the list then the list doesn't exist on db
+        if (current == null) {
+          list = <String>[];
+        } else if (current is List) {
+          list = current.map((e) => e.toString()).toList();
+        } else if (current is Map) {
+          // If a map like {"uid1": true, "uid2": true} got stored earlier,
+          // turn it into a list of keys.
+          list = current.keys.map((e) => e.toString()).toList();
+        } else {
+          // Unexpected type — reset to list
+          list = <String>[];
+        }
+
+        if (!list.contains(uid)) {
+          list.add(uid);
+        }
+
+        return Transaction.success(list);
+      });
+
+      if (result.committed) {
+        debugPrint('[addPatient] Success: ${result.snapshot.value}');
+        return true;
+      } else {
+        debugPrint('[addPatient] Transaction not committed');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[addPatient] Error: $e');
       return false;
     }
-    patients.add(uid);
-
-    // add to patients list of nurse
-    await ref.child('users/$nurseUid/patients').set(patients);
-    return true;
   }
 
   static Future<bool> removePatient(String uid) async {

@@ -49,6 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final AppTheme theme = context.watch<ThemeController>().value;
     return Scaffold(
       body: Center(
         child: Column(
@@ -59,6 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ? Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: TextField(
+                    style: TextStyle(color: theme.textColor),
                     controller: _nameController,
                     decoration: InputDecoration(
                       labelText: 'Set Name Here',
@@ -90,14 +92,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text("Toggle Theme"),
             ),
             SizedBox(height: SizeConfig.vertical! * 40),
-            ElevatedButton(
-              onPressed: () {
-                // Implement logout functionality here
-                Auth().signOut().then((_) {
-                  Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
-                });
-              },
-              child: Text('Logout'),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () {
+                  // Implement logout functionality here
+                  Auth().signOut().then((_) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/',
+                      (_) => false,
+                    );
+                  });
+                },
+                child: Text('Logout'),
+              ),
             ),
           ],
         ),

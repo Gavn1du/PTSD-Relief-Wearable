@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:ptsd_relief_app/services/data.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
@@ -12,29 +13,27 @@ class Addpatientscreen extends StatefulWidget {
 }
 
 class _AddpatientscreenState extends State<Addpatientscreen> {
-  List<Map<String, dynamic>> searchResults = [];
+  String _query = "";
+  Timer? _debounce;
 
   @override
-  void initState() {
-    Data.searchPatientsByName("").then((results) {
-      // Update the UI with search results
-      Data.getFirebaseDataFromSharedPref('data').then((data) {
-        List<String> existingPatientIds = data?['patients'] ?? [];
-        results.removeWhere(
-          (patient) => existingPatientIds.contains(patient['uid']),
-        );
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
 
-        setState(() {
-          searchResults = results;
-        });
-      });
+  void _onQueryChanged(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() => _query = v);
     });
-    super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     final AppTheme theme = context.watch<ThemeController>().value;
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -43,74 +42,83 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
               padding: const EdgeInsets.all(8.0),
               child: TextField(
                 style: TextStyle(color: theme.textColor),
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Patient Name',
                 ),
-                onChanged: (value) {
-                  // TODO: TEST THIS
-                  // Handle search logic here
-                  Data.searchPatientsByName(value).then((results) {
-                    // Update the UI with search results
-                    Data.getFirebaseDataFromSharedPref('data').then((data) {
-                      List<String> existingPatientIds = data?['patients'] ?? [];
-                      results.removeWhere(
-                        (patient) =>
-                            existingPatientIds.contains(patient['uid']),
-                      );
-
-                      setState(() {
-                        searchResults = results;
-                      });
-                    });
-                  });
-                },
+                onChanged: _onQueryChanged,
               ),
             ),
 
+            // 1) Stream the nurse's current patients so we can exclude them live
             Expanded(
-              child: ListView.builder(
-                itemCount: searchResults.length,
-                itemBuilder: (context, index) {
-                  final patient = searchResults[index];
-                  return ListTile(
-                    title: Text(
-                      patient['displayName'] ?? patient['uid'],
-                      style: TextStyle(color: theme.textColor),
-                    ),
-                    subtitle: Text(
-                      'ID: ${patient['uid']}',
-                      style: TextStyle(color: theme.textColor),
-                    ),
-                    trailing: IconButton(
-                      icon: Icon(Icons.add),
-                      onPressed: () {
-                        // Handle add patient logic here
-                        print('Add patient: ${patient['uid']}');
-                        Data.addPatient(patient['uid']).then((success) {
-                          if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Patient added successfully'),
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Failed to add patient')),
-                            );
-                          }
-                        });
-                      },
-                    ),
+              child: StreamBuilder<Set<String>>(
+                stream: Data.nursePatientIdsStream(),
+                builder: (context, nurseSnap) {
+                  final excluded = nurseSnap.data ?? <String>{};
+
+                  // 2) Query userDirectory and exclude already-added UIDs
+                  return FutureBuilder<List<Map<String, dynamic>>>(
+                    future: Data.searchDirectoryExcluding(_query, excluded),
+                    builder: (context, dirSnap) {
+                      if (dirSnap.connectionState == ConnectionState.waiting &&
+                          (nurseSnap.connectionState ==
+                              ConnectionState.waiting)) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final list =
+                          dirSnap.data ?? const <Map<String, dynamic>>[];
+                      if (list.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'No patients found',
+                            style: TextStyle(color: theme.textColor),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: list.length,
+                        itemBuilder: (context, index) {
+                          final patient = list[index];
+                          final display =
+                              (patient['displayName'] ?? patient['uid'])
+                                  .toString();
+                          final uid = patient['uid'].toString();
+
+                          return ListTile(
+                            title: Text(
+                              display,
+                              style: TextStyle(color: theme.textColor),
+                            ),
+                            subtitle: Text(
+                              'ID: $uid',
+                              style: TextStyle(color: theme.textColor),
+                            ),
+                            trailing: IconButton(
+                              color: theme.themeIconColor,
+                              icon: const Icon(Icons.add),
+                              onPressed: () async {
+                                final ok = await Data.addPatient(uid);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok
+                                          ? 'Patient added successfully'
+                                          : 'Failed to add patient',
+                                    ),
+                                  ),
+                                );
+                                // No manual removal—once RTDB updates, the stream excludes it.
+                              },
+                            ),
+                          );
+                        },
+                      );
+                    },
                   );
                 },
-                // children: [
-                //   ListTile(
-                //     title: Text('Jack Smith'),
-                //     subtitle: Text('ID: 12345'),
-                //     trailing: Icon(Icons.add),
-                //   ),
-                // ],
               ),
             ),
           ],

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ptsd_relief_app/components/theme.dart';
+import 'package:provider/provider.dart';
 
 class AuthTextField extends StatefulWidget {
   final TextEditingController controller;
@@ -24,7 +26,9 @@ class AuthTextField extends StatefulWidget {
 class _AuthTextFieldState extends State<AuthTextField> {
   @override
   Widget build(BuildContext context) {
+    final AppTheme theme = context.watch<ThemeController>().value;
     return TextFormField(
+      style: TextStyle(color: theme.textColor),
       controller: widget.controller,
       decoration: InputDecoration(
         border: OutlineInputBorder(),

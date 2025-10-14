@@ -3,6 +3,8 @@ import 'package:ptsd_relief_app/services/auth.dart';
 import 'package:ptsd_relief_app/services/data.dart';
 import 'package:ptsd_relief_app/widgets/button_format.dart';
 import 'package:ptsd_relief_app/widgets/auth_text_field.dart';
+import 'package:ptsd_relief_app/components/theme.dart';
+import 'package:provider/provider.dart';
 
 class Signupscreen extends StatefulWidget {
   const Signupscreen({super.key});
@@ -57,6 +59,7 @@ class _SignupscreenState extends State<Signupscreen> {
 
   @override
   Widget build(BuildContext context) {
+    final AppTheme theme = context.watch<ThemeController>().value;
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -267,9 +270,9 @@ class _SignupscreenState extends State<Signupscreen> {
 
                         if (user != null) {
                           if (selectedRoleIndex == 1) {
-                            await Data.setPatientName(
-                              fullNameController.text.trim(),
-                            );
+                            Data()
+                                .setPatientName(fullNameController.text.trim())
+                                .then((value) {});
                           }
                           Navigator.pushNamed(context, '/home');
                         } else {

@@ -28,6 +28,7 @@ class _LoginscreenState extends State<Loginscreen> {
             Column(
               children: [
                 TextField(
+                  style: TextStyle(color: theme.textColor),
                   controller: emailController,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(),
@@ -37,6 +38,7 @@ class _LoginscreenState extends State<Loginscreen> {
                 ),
                 SizedBox(height: 10),
                 TextField(
+                  style: TextStyle(color: theme.textColor),
                   controller: passwordController,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(),
