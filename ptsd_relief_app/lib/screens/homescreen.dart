@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
+import 'package:ptsd_relief_app/screens/historyscreen.dart';
 import 'package:ptsd_relief_app/services/auth.dart';
 import 'package:ptsd_relief_app/size_config.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -259,14 +260,43 @@ class _HomescreenState extends State<Homescreen> {
         child: Center(
           child:
               (account_type == 1)
-                  ? ListView(
-                    children: [
-                      PatientCard(
-                        name: "Dave",
-                        location: "33.693,-117.767",
-                        heartRate: 67,
-                      ),
-                    ],
+                  ? StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: Data.nursePatientsDetailsStream(),
+                    builder: (context, snap) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+
+                      print("SNAP DATA: ${snap.data}");
+                      final patients = snap.data ?? const [];
+                      print("PATIENTS DATA: $patients");
+
+                      if (patients.isEmpty) {
+                        return ListView(
+                          children: [
+                            Text(
+                              "No patients yet. Add them from Add Patient tab.",
+                            ),
+                          ],
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: patients.length,
+                        itemBuilder: (context, index) {
+                          final p = patients[index];
+                          return PatientCard(
+                            name: (p['name'] ?? "").toString(),
+                            location: (p['room'] ?? "").toString(),
+                            heartRate: p['BPM'] ?? 0,
+                            onTap: () {
+                              // MAKE ACTUAL PAGE
+                              Navigator.pushNamed(context, '/history');
+                            },
+                          );
+                        },
+                      );
+                    },
                   )
                   : Column(
                     mainAxisAlignment: MainAxisAlignment.start,

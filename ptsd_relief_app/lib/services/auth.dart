@@ -40,6 +40,9 @@ class Auth {
             'status': 'healthy',
             'type': accountTypeStr,
             'name': fullName,
+            'room': "",
+            'ADM': "",
+            'BPM': 0,
           });
           break;
         case 2:

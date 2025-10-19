@@ -7,11 +7,13 @@ class PatientCard extends StatefulWidget {
     required this.name,
     required this.location,
     required this.heartRate,
+    this.onTap,
   });
 
   final String name;
   final String location;
   final int heartRate;
+  final VoidCallback? onTap;
 
   @override
   State<PatientCard> createState() => _PatientCardState();
@@ -24,7 +26,7 @@ class _PatientCardState extends State<PatientCard> {
       width: SizeConfig.horizontal! * 90,
       height: SizeConfig.vertical! * 10,
       child: InkWell(
-        onTap: () {},
+        onTap: widget.onTap,
         child: Card(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,

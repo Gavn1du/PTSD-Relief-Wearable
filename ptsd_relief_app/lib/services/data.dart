@@ -80,6 +80,53 @@ class Data extends ChangeNotifier {
     });
   }
 
+  // to get one patient data and one only
+  static Future<Map<String, dynamic>?> getPatientData(String uid) async {
+    try {
+      final snap = await FirebaseDatabase.instance.ref('users/$uid').get();
+
+      if (!snap.exists) return null;
+
+      final patient = Map<String, dynamic>.from(snap.value as Map);
+      print("PATIENT: $patient");
+      return {
+        'uid': uid,
+        'BPM': int.tryParse((patient['BPM'] ?? 0).toString()) ?? 0,
+        'ADM': (patient['ADM'] ?? "").toString(),
+        'name': (patient['name'] ?? "").toString(),
+        'room': (patient['room'] ?? "").toString(),
+        'status': (patient['status'] ?? "").toString(),
+      };
+    } catch (e) {
+      debugPrint('[getPatientData] uid=$uid error: $e');
+      return null;
+    }
+  }
+
+  // firebase permission that didn't let the nurse access:
+  //  && root.child('users').child(auth.uid).child('patients').child($uid).exists())
+
+  static Future<List<Map<String, dynamic>>> getPatientsDetails(
+    Iterable<dynamic> uids,
+  ) async {
+    final futures = uids.map((id) => getPatientData(id.toString()));
+    print("FUTURES: $futures");
+    final results = await Future.wait(futures);
+    print("RESULTS: $results");
+    final list = results.whereType<Map<String, dynamic>>().toList();
+    print("LIST: $list");
+    list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+    return list;
+  }
+
+  static Stream<List<Map<String, dynamic>>> nursePatientsDetailsStream() {
+    return nursePatientIdsStream().asyncMap((ids) async {
+      print("THIS IS EMPTY: $ids");
+      if (ids.isEmpty) return <Map<String, dynamic>>[];
+      return getPatientsDetails(ids);
+    });
+  }
+
   /// Query `userDirectory` by name prefix and exclude any UIDs in [excludeUids].
   /// Assumes userDirectory only contains *patients*.
   static Future<List<Map<String, dynamic>>> searchDirectoryExcluding(
