@@ -5,13 +5,13 @@ class PatientCard extends StatefulWidget {
   const PatientCard({
     super.key,
     required this.name,
-    required this.location,
+    this.location,
     required this.heartRate,
     this.onTap,
   });
 
   final String name;
-  final String location;
+  final String? location;
   final int heartRate;
   final VoidCallback? onTap;
 
@@ -35,7 +35,12 @@ class _PatientCardState extends State<PatientCard> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(widget.name, style: TextStyle(fontSize: 20)),
-                  Text(widget.location, style: TextStyle(fontSize: 20)),
+                  Text(
+                    (widget.location != null)
+                        ? "${widget.location}"
+                        : "No location provided",
+                    style: TextStyle(fontSize: 20),
+                  ),
                 ],
               ),
               Row(

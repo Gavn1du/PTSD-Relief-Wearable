@@ -287,7 +287,9 @@ class _HomescreenState extends State<Homescreen> {
                           final p = patients[index];
                           return PatientCard(
                             name: (p['name'] ?? "").toString(),
-                            location: (p['room'] ?? "").toString(),
+                            location:
+                                (p['room'] ?? "No location recorded")
+                                    .toString(),
                             heartRate: p['BPM'] ?? 0,
                             onTap: () {
                               // MAKE ACTUAL PAGE
