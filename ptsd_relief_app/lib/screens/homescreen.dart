@@ -257,127 +257,131 @@ class _HomescreenState extends State<Homescreen> {
       //   title: const Text('Home Screen'),
       // ),
       body: SafeArea(
-        child: Center(
-          child:
-              (account_type == 1)
-                  ? StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: Data.nursePatientsDetailsStream(),
-                    builder: (context, snap) {
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
-                      }
+        child: SingleChildScrollView(
+          child: Center(
+            child:
+                (account_type == 1)
+                    ? StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: Data.nursePatientsDetailsStream(),
+                      builder: (context, snap) {
+                        if (snap.connectionState == ConnectionState.waiting) {
+                          return Center(child: CircularProgressIndicator());
+                        }
 
-                      print("SNAP DATA: ${snap.data}");
-                      final patients = snap.data ?? const [];
-                      print("PATIENTS DATA: $patients");
+                        print("SNAP DATA: ${snap.data}");
+                        final patients = snap.data ?? const [];
+                        print("PATIENTS DATA: $patients");
 
-                      if (patients.isEmpty) {
-                        return ListView(
-                          children: [
-                            Text(
-                              "No patients yet. Add them from Add Patient tab.",
-                            ),
-                          ],
-                        );
-                      }
-
-                      return ListView.builder(
-                        itemCount: patients.length,
-                        itemBuilder: (context, index) {
-                          final p = patients[index];
-                          return PatientCard(
-                            name: (p['name'] ?? "").toString(),
-                            location:
-                                (p['room'] ?? "No location recorded")
-                                    .toString(),
-                            heartRate: p['BPM'] ?? 0,
-                            onTap: () {
-                              // MAKE ACTUAL PAGE
-                              Navigator.pushNamed(context, '/history');
-                            },
+                        if (patients.isEmpty) {
+                          return ListView(
+                            children: [
+                              Text(
+                                "No patients yet. Add them from Add Patient tab.",
+                              ),
+                            ],
                           );
-                        },
-                      );
-                    },
-                  )
-                  : Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: SizeConfig.vertical! * 6,
-                        width: SizeConfig.horizontal! * 80,
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Row(
-                              children: [
-                                Text(
-                                  currentBPM.toString(),
-                                  style: TextStyle(fontSize: 20),
-                                ),
-                                Text('BPM'),
-                              ],
+                        }
+
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: patients.length,
+                          itemBuilder: (context, index) {
+                            final p = patients[index];
+                            return PatientCard(
+                              status: (p['status' ?? ""]).toString(),
+                              name: (p['name'] ?? "").toString(),
+                              location:
+                                  (p['room'] ?? "No location recorded")
+                                      .toString(),
+                              heartRate: p['BPM'] ?? 0,
+                              onTap: () {
+                                // MAKE ACTUAL PAGE
+                                Navigator.pushNamed(context, '/history');
+                              },
+                            );
+                          },
+                        );
+                      },
+                    )
+                    : Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: SizeConfig.vertical! * 6,
+                          width: SizeConfig.horizontal! * 80,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    currentBPM.toString(),
+                                    style: TextStyle(fontSize: 20),
+                                  ),
+                                  Text('BPM'),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        height: SizeConfig.horizontal! * 80,
-                        width: SizeConfig.horizontal! * 80,
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: LineChart(mainData()),
+                        SizedBox(
+                          height: SizeConfig.horizontal! * 80,
+                          width: SizeConfig.horizontal! * 80,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20.0),
+                              child: LineChart(mainData()),
+                            ),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        height: SizeConfig.horizontal! * 80,
-                        width: SizeConfig.horizontal! * 80,
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(13.0),
-                            child:
-                                (sortedBPMData.isNotEmpty)
-                                    ? ListView.builder(
-                                      itemCount: sortedBPMData.length,
-                                      itemBuilder: (context, index) {
-                                        final bpmData = sortedBPMData[index];
-                                        return RecommendationCard(
-                                          bpm: bpmData.bpm,
-                                          time: bpmData.time,
-                                        );
-                                      },
-                                    )
-                                    : Center(
-                                      child: Text(
-                                        'No BPM history available',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          color: Colors.black,
+                        SizedBox(
+                          height: SizeConfig.horizontal! * 80,
+                          width: SizeConfig.horizontal! * 80,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(13.0),
+                              child:
+                                  (sortedBPMData.isNotEmpty)
+                                      ? ListView.builder(
+                                        itemCount: sortedBPMData.length,
+                                        itemBuilder: (context, index) {
+                                          final bpmData = sortedBPMData[index];
+                                          return RecommendationCard(
+                                            bpm: bpmData.bpm,
+                                            time: bpmData.time,
+                                          );
+                                        },
+                                      )
+                                      : Center(
+                                        child: Text(
+                                          'No BPM history available',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 16,
+                                            color: Colors.black,
+                                          ),
                                         ),
                                       ),
-                                    ),
+                            ),
                           ),
                         ),
-                      ),
-                      // SizedBox(
-                      //   height: SizeConfig.vertical! * 6,
-                      //   width: SizeConfig.horizontal! * 80,
-                      //   child: Card(
-                      //     child: Padding(
-                      //       padding: const EdgeInsets.all(8.0),
-                      //       child: Row(
-                      //         children: [
-                      //           Text('67', style: TextStyle(fontSize: 20)),
-                      //           Text('BPM'),
-                      //         ],
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
-                    ],
-                  ),
+                        // SizedBox(
+                        //   height: SizeConfig.vertical! * 6,
+                        //   width: SizeConfig.horizontal! * 80,
+                        //   child: Card(
+                        //     child: Padding(
+                        //       padding: const EdgeInsets.all(8.0),
+                        //       child: Row(
+                        //         children: [
+                        //           Text('67', style: TextStyle(fontSize: 20)),
+                        //           Text('BPM'),
+                        //         ],
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ),
+                      ],
+                    ),
+          ),
         ),
       ),
       bottomNavigationBar: Navbar(
