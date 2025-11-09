@@ -51,7 +51,19 @@ class _LoginscreenState extends State<Loginscreen> {
                   onPressed: () {
                     Auth()
                         .signIn(emailController.text, passwordController.text)
-                        .then((_) {
+                        .then((user) {
+                          if (user == null) {
+                            // Show error message
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Login failed. Please try again.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
                           Navigator.pushNamed(context, '/home');
                         });
                   },

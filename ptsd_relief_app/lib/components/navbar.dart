@@ -81,7 +81,16 @@ class _NavbarState extends State<Navbar> {
       },
       indicatorColor: theme.activeButton,
       destinations:
-          (widget.accountType == 'patient')
+          (widget.accountType == "")
+              ? [
+                NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
+                // loading destination placeholder
+                NavigationDestination(
+                  icon: Icon(Icons.hourglass_empty),
+                  label: 'Loading',
+                ),
+              ]
+              : (widget.accountType == 'patient')
               ? const <Widget>[
                 NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
                 NavigationDestination(

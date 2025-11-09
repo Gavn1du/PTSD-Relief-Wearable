@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ptsd_relief_app/services/data.dart';
 import 'package:ptsd_relief_app/components/patient_card.dart';
+import 'package:ptsd_relief_app/screens/patientdetail.dart';
 
 class BPMData {
   final DateTime time;
@@ -28,7 +29,7 @@ class Homescreen extends StatefulWidget {
 class _HomescreenState extends State<Homescreen> {
   Map<String, dynamic> firebaseData = {};
 
-  int account_type = 0; // 0 = individual account, 1 = nurse, 2 = patient
+  int account_type = -1; // 0 = individual account, 1 = nurse, 2 = patient
 
   late final double nowMillis;
   late final double oneHourAgoMillis;
@@ -260,7 +261,9 @@ class _HomescreenState extends State<Homescreen> {
         child: SingleChildScrollView(
           child: Center(
             child:
-                (account_type == 1)
+                (account_type == -1)
+                    ? Center(child: CircularProgressIndicator())
+                    : (account_type == 1)
                     ? StreamBuilder<List<Map<String, dynamic>>>(
                       stream: Data.nursePatientsDetailsStream(),
                       builder: (context, snap) {
@@ -296,7 +299,22 @@ class _HomescreenState extends State<Homescreen> {
                               heartRate: p['BPM'] ?? 0,
                               onTap: () {
                                 // MAKE ACTUAL PAGE
-                                Navigator.pushNamed(context, '/history');
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => Patientdetail(
+                                          patient: {
+                                            // name, bpm, bpm_data, location
+                                            'uid': p['uid'] ?? '',
+                                            'name': p['name'] ?? '',
+                                            'bpm': p['BPM'] ?? 0,
+                                            'bpm_data': p['bpm_data'] ?? [],
+                                            'room': p['room'] ?? '',
+                                          },
+                                        ),
+                                  ),
+                                );
                               },
                             );
                           },
@@ -386,7 +404,12 @@ class _HomescreenState extends State<Homescreen> {
       ),
       bottomNavigationBar: Navbar(
         currentIndex: 0,
-        accountType: (account_type == 1) ? 'nurse' : 'patient',
+        accountType:
+            (account_type == -1)
+                ? ""
+                : (account_type == 1)
+                ? 'nurse'
+                : 'patient',
       ),
     );
   }

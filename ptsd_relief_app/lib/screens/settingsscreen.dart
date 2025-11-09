@@ -15,7 +15,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic> firebaseData = {};
-  int account_type = 0; // 0 = none, 1 = nurse,
+  int account_type = -1; // 0 = none, 1 = nurse,
 
   TextEditingController _nameController = TextEditingController();
 
@@ -52,73 +52,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final AppTheme theme = context.watch<ThemeController>().value;
     return Scaffold(
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            (account_type != 1)
-                ? Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: TextField(
-                    style: TextStyle(color: theme.textColor),
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Set Name Here',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10.0),
+        child:
+            (account_type > -1)
+                ? Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    (account_type != 1)
+                        ? Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: TextField(
+                            style: TextStyle(color: theme.textColor),
+                            controller: _nameController,
+                            decoration: InputDecoration(
+                              labelText: 'Set Name Here',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10.0),
+                              ),
+                            ),
+                          ),
+                        )
+                        : Container(),
+                    (account_type != 1)
+                        ? ElevatedButton(
+                          onPressed: () {
+                            // Implement change name functionality here
+                            print("Changing name to ${_nameController.text}");
+                            Data().setPatientName(_nameController.text).then((
+                              value,
+                            ) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Name changed successfully!'),
+                                ),
+                              );
+                            });
+                          },
+                          child: Text('Change Name'),
+                        )
+                        : Container(),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.read<ThemeController>().toggle();
+                      },
+                      child: Text("Toggle Theme"),
+                    ),
+                    SizedBox(height: SizeConfig.vertical! * 40),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          // Implement logout functionality here
+                          Auth().signOut().then((_) {
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/',
+                              (_) => false,
+                            );
+                          });
+                        },
+                        child: Text('Logout'),
                       ),
                     ),
-                  ),
+                  ],
                 )
                 : Container(),
-            (account_type != 1)
-                ? ElevatedButton(
-                  onPressed: () {
-                    // Implement change name functionality here
-                    print("Changing name to ${_nameController.text}");
-                    Data().setPatientName(_nameController.text).then((value) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Name changed successfully!')),
-                      );
-                    });
-                  },
-                  child: Text('Change Name'),
-                )
-                : Container(),
-            ElevatedButton(
-              onPressed: () {
-                context.read<ThemeController>().toggle();
-              },
-              child: Text("Toggle Theme"),
-            ),
-            SizedBox(height: SizeConfig.vertical! * 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: () {
-                  // Implement logout functionality here
-                  Auth().signOut().then((_) {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/',
-                      (_) => false,
-                    );
-                  });
-                },
-                child: Text('Logout'),
-              ),
-            ),
-          ],
-        ),
       ),
       bottomNavigationBar: Navbar(
-        currentIndex: account_type == 1 ? 2 : 4,
-        accountType: account_type == 1 ? 'nurse' : 'patient',
+        currentIndex:
+            (account_type == -1)
+                ? 0
+                : account_type == 1
+                ? 2
+                : 4,
+        accountType:
+            (account_type == -1)
+                ? ""
+                : account_type == 1
+                ? 'nurse'
+                : 'patient',
       ),
     );
   }

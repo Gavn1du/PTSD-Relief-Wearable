@@ -260,6 +260,11 @@ class Data extends ChangeNotifier {
     return true;
   }
 
+  static Future<void> changePatientRoom(String uid, String newRoom) async {
+    final ref = FirebaseDatabase.instance.ref();
+    await ref.child('users/$uid/room').set(newRoom);
+  }
+
   static Future<void> saveStringData(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
