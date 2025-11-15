@@ -112,8 +112,8 @@ class _HelpscreenState extends State<Helpscreen> {
   }
 
   // ===== OLLAMA TEST FUNCTIONS =====
-  // String ollamaUrl = "http://192.168.1.162:11434";
-  String ollamaUrl = "http://localhost:11434";
+  String ollamaUrl = "http://192.168.4.255:11434";
+  // String ollamaUrl = "http://localhost:11434";
 
   Future<void> sendPrompt(String prompt) async {
     final uri = Uri.parse('$ollamaUrl/api/generate');

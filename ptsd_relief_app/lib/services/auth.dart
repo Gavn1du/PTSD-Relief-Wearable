@@ -89,4 +89,26 @@ class Auth {
       print(e.toString());
     }
   }
+
+  // delete account and associated realtime database record
+  Future<void> deleteAccount() async {
+    try {
+      final User? currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+
+      // Remove user profile data from Realtime Database first
+      final String uid = currentUser.uid;
+      await FirebaseDatabase.instance.ref('users/$uid').remove();
+
+      // Delete the Firebase Auth user (may require recent sign-in)
+      await currentUser.delete();
+    } on FirebaseAuthException catch (e) {
+      // Re-throw to allow UI to handle specific cases like requires-recent-login
+      throw e;
+    } catch (e) {
+      // Log unexpected errors
+      print(e.toString());
+      rethrow;
+    }
+  }
 }

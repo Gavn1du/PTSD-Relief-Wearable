@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:ptsd_relief_app/components/theme.dart';
 import 'package:ptsd_relief_app/services/data.dart';
@@ -119,6 +120,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Text('Logout'),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: _confirmAndDeleteAccount,
+                        child: const Text('Delete Account'),
+                      ),
+                    ),
                   ],
                 )
                 : Container(),
@@ -138,5 +154,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 : 'patient',
       ),
     );
+  }
+
+  Future<void> _confirmAndDeleteAccount() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Delete Account?'),
+            content: const Text(
+              'This will permanently delete your account and associated data. This action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await Auth().deleteAccount();
+      await Auth().signOut();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Account deleted.')));
+      Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
+    } on FirebaseAuthException catch (e) {
+      String message;
+      if (e.code == 'requires-recent-login') {
+        message = 'Please log in again to delete your account.';
+      } else {
+        message = 'Failed to delete account: ${e.message ?? e.code}';
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete account.')),
+      );
+    }
   }
 }
