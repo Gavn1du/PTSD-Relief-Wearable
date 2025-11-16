@@ -198,6 +198,10 @@ class _HomescreenState extends State<Homescreen> {
             account_type = 0;
           }
         }
+
+        if (firebaseData.containsKey('BPM')) {
+          currentBPM = firebaseData['BPM'];
+        }
       });
     });
 

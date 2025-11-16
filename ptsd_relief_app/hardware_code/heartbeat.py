@@ -3,6 +3,29 @@ import busio
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 import time
+import json
+
+# === Firebase Configuration ===
+import firebase_admin
+from firebase_admin import credentials, db
+
+SERVICE_ACCOUNT_PATH = "/home/duzhi/service_account.json"
+
+DATABASE_URL = "https://ptsd-app-3ba18-default-rtdb.firebaseio.com/"
+
+cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
+firebase_admin.initialize_app(cred, {
+    'databaseURL': DATABASE_URL
+})
+
+USER_UID = "74QAdMRDQMZbKMaZof5oYCsmh0q1"
+
+bpm_ref = db.reference(f'users/{USER_UID}/BPM')
+
+def update_bpm_in_firebase(bpm):
+    bpm_ref.set(bpm)
+
+# ==============================
 
 i2c = busio.I2C(board.SCL, board.SDA)
 ads = ADS.ADS1115(i2c)
@@ -49,6 +72,9 @@ while True:
     if now - window_start >= WINDOW_SEC:
         bpm = int(round((beats_in_window / WINDOW_SEC) * 60))
         print(f"Heart Rate: {bpm} BPM")
+
+        update_bpm_in_firebase(bpm)
+
         beats_in_window = 0
         window_start = now
     
