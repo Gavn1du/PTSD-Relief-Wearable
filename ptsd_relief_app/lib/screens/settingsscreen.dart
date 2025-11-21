@@ -98,6 +98,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                       child: Text("Toggle Theme"),
                     ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/medsources');
+                      },
+                      child: Text("Medical Sources"),
+                    ),
                     SizedBox(height: SizeConfig.vertical! * 40),
                     SizedBox(
                       width: double.infinity,

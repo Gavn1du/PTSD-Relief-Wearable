@@ -24,7 +24,14 @@ class _LoginscreenState extends State<Loginscreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(),
+            Container(
+              margin: EdgeInsets.only(top: 150),
+              child: Image.asset(
+                'assets/app icon.jpg',
+                height: 150,
+                width: 150,
+              ),
+            ),
             Column(
               children: [
                 TextField(
@@ -70,6 +77,23 @@ class _LoginscreenState extends State<Loginscreen> {
                   child: Text("Login"),
                 ),
               ],
+            ),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "Disclaimer: This app is for education and training purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition.",
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             TextButton(
               onPressed: () {
