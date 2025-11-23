@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_math_fork/tex.dart';
+// import 'package:flutter_math_fork/tex.dart';
 import 'package:ptsd_relief_app/size_config.dart';
 
 class PatientCard extends StatefulWidget {

@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
+// import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:markdown_widget/widget/markdown.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:chatview/chatview.dart';
@@ -112,7 +112,7 @@ class _HelpscreenState extends State<Helpscreen> {
   }
 
   // ===== OLLAMA TEST FUNCTIONS =====
-  String ollamaUrl = "http://192.168.4.255:11434";
+  String ollamaUrl = "http://192.168.1.61:11434";
   // String ollamaUrl = "http://localhost:11434";
 
   Future<void> sendPrompt(String prompt) async {
@@ -709,7 +709,7 @@ class _HelpscreenState extends State<Helpscreen> {
             replyPopupConfig: ReplyPopupConfiguration(
               // TODO: add a pass through gesture detector to catch when this pops up so we can show custom text instead of More, Report, and Reply
               backgroundColor: theme.replyPopupColor,
-              buttonTextStyle: TextStyle(color: theme.replyPopupColor),
+              // buttonTextStyle: TextStyle(color: theme.replyPopupColor),
               topBorderColor: theme.replyPopupTopBorderColor,
               onMoreTap: (Message message, bool isReplying) {
                 /// Do something when more button is tapped

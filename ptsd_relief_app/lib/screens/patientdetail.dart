@@ -178,64 +178,78 @@ class _PatientdetailState extends State<Patientdetail> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-      body: Center(
-        child: Column(
-          children: [
-            Text(
-              widget.patient['name'] ?? 'No Name',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              "${widget.patient['bpm']?.toString() ?? '0'} BPM",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(
-              height: SizeConfig.horizontal! * 80,
-              width: SizeConfig.horizontal! * 80,
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: LineChart(mainData()),
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            children: [
+              Text(
+                widget.patient['name'] ?? 'No Name',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                "${widget.patient['bpm']?.toString() ?? '0'} BPM",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(
+                height: SizeConfig.horizontal! * 80,
+                width: SizeConfig.horizontal! * 80,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: LineChart(mainData()),
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: TextField(
-                controller: locationController,
-                decoration: InputDecoration(
-                  labelText: 'Change Location',
-                  border: OutlineInputBorder(),
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: TextField(
+                  controller: locationController,
+                  decoration: InputDecoration(
+                    labelText: 'Change Location',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                print(
-                  'Saving new location: ${locationController.text} to patient ${widget.patient['uid']}',
-                );
-                // Handle save action
-                Data.changePatientRoom(
-                      widget.patient['uid'],
-                      locationController.text,
-                    )
-                    .then((_) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Location updated successfully'),
-                        ),
-                      );
-                      Navigator.pushNamed(context, '/home');
-                    })
-                    .catchError((error) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to update location')),
-                      );
+              ElevatedButton(
+                onPressed: () {
+                  print(
+                    'Saving new location: ${locationController.text} to patient ${widget.patient['uid']}',
+                  );
+                  // Handle save action
+                  Data.changePatientRoom(
+                        widget.patient['uid'],
+                        locationController.text,
+                      )
+                      .then((_) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Location updated successfully'),
+                          ),
+                        );
+                        Navigator.pushNamed(context, '/home');
+                      })
+                      .catchError((error) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to update location')),
+                        );
+                      });
+                },
+                child: Text('Save'),
+              ),
+              Expanded(child: Container()),
+              SizedBox(
+                width: SizeConfig.horizontal! * 100,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Data.removePatient(widget.patient['uid']).then((_) {
+                      Navigator.pop(context);
                     });
-              },
-              child: Text('Save'),
-            ),
-          ],
+                  },
+                  child: Text("Remove Patient"),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

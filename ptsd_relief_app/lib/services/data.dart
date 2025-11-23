@@ -247,7 +247,13 @@ class Data extends ChangeNotifier {
     final snapshot = await ref.child('users/$nurseUid/patients').get();
     List<dynamic> patients = [];
     if (snapshot.exists) {
-      patients = List<dynamic>.from(snapshot.value as List);
+      print("SNAPSHOT VALUE: ${snapshot.value as Map<dynamic, dynamic>}");
+
+      patients = (snapshot.value as Map<dynamic, dynamic>)['patients'].toList();
+
+      // print("PATIENT LIST: $patientList");
+
+      // patients = List<dynamic>.from(snapshot.value! as List);
     }
     // check if patient exists
     if (!patients.contains(uid)) {
