@@ -57,10 +57,10 @@ class _DetailScreenState extends State<DetailScreen> {
                     "Highest Heartrate: ${widget.highestHeartrate} bpm",
                     style: TextStyle(fontSize: 20, color: Colors.white),
                   ),
-                  Text(
-                    widget.aiTitle,
-                    style: TextStyle(fontSize: 20, color: Colors.white),
-                  ),
+                  // Text(
+                  //   widget.aiTitle,
+                  //   style: TextStyle(fontSize: 20, color: Colors.white),
+                  // ),
                   SizedBox(height: SizeConfig.vertical! * 1),
                   Text(
                     "Suggested Activities",

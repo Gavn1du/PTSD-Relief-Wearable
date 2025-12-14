@@ -26,12 +26,12 @@ class _HistoryscreenState extends State<Historyscreen> {
             print('No history data found.');
 
             // for now, just add a test entry
-            historyData.add([
-              DateTime.now(),
-              120, // Example highest heart rate
-              'AI Generated Title', // Example AI title
-              ['Activity 1', 'Activity 2'], // Example activities
-            ]);
+            // historyData.add([
+            //   DateTime.now(),
+            //   0, // Example highest heart rate
+            //   '', // Example AI title
+            //   [], // Example activities
+            // ]);
 
             setState(() {
               // Trigger a rebuild to show the test entry
@@ -74,18 +74,21 @@ class _HistoryscreenState extends State<Historyscreen> {
       // ),
       body: SafeArea(
         child: Center(
-          child: ListView.builder(
-            // shrinkWrap: true,
-            itemCount: historyData.length,
-            itemBuilder: (context, index) {
-              return HistoryCard(
-                timestamp: historyData[index][0],
-                highestHeartRate: historyData[index][1],
-                aiTitle: historyData[index][2],
-                activities: List<String>.from(historyData[index][3]),
-              );
-            },
-          ),
+          child:
+              (historyData.isEmpty)
+                  ? Text("No history yet!")
+                  : ListView.builder(
+                    // shrinkWrap: true,
+                    itemCount: historyData.length,
+                    itemBuilder: (context, index) {
+                      return HistoryCard(
+                        timestamp: historyData[index][0],
+                        highestHeartRate: historyData[index][1],
+                        aiTitle: historyData[index][2],
+                        activities: List<String>.from(historyData[index][3]),
+                      );
+                    },
+                  ),
         ),
       ),
       bottomNavigationBar: Navbar(currentIndex: 1),

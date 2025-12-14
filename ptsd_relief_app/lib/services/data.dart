@@ -316,6 +316,25 @@ class Data extends ChangeNotifier {
     return prefs.getStringList(key);
   }
 
+  static Future<void> saveAnomaly(String data) async {
+    final prefs = await SharedPreferences.getInstance();
+    getStringListData('history').then((value) {
+      if (value == null) {
+        print("Creating new history list");
+        prefs.setStringList('history', [data]);
+      } else {
+        print("Adding to existing history list");
+        value.add(data);
+        prefs.setStringList('history', value);
+      }
+    });
+  }
+
+  static Future<void> clearAnomalyHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('history');
+  }
+
   static Future<void> saveStringListData(String key, List<String> value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(key, value);
