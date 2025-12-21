@@ -7,6 +7,7 @@ import 'package:ptsd_relief_app/screens/loginscreen.dart';
 import 'package:ptsd_relief_app/screens/signupscreen.dart';
 import 'package:ptsd_relief_app/screens/settingsscreen.dart';
 import 'package:ptsd_relief_app/screens/medsources.dart';
+import 'package:ptsd_relief_app/screens/connect.dart';
 import 'package:ptsd_relief_app/initial.dart';
 
 var routes = {
@@ -20,4 +21,5 @@ var routes = {
   '/signup': (context) => const Signupscreen(),
   '/settings': (context) => const SettingsScreen(),
   '/medsources': (context) => const MedsourcesScreen(),
+  '/connect': (context) => const ConnectScreen(),
 };

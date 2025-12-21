@@ -104,6 +104,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                       child: Text("Medical Sources"),
                     ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/connect');
+                      },
+                      child: Text("Connect Device"),
+                    ),
                     SizedBox(height: SizeConfig.vertical! * 40),
                     SizedBox(
                       width: double.infinity,
