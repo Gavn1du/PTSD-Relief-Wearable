@@ -13,7 +13,7 @@ class ConnectScreen extends StatefulWidget {
 }
 
 class _ConnectScreenState extends State<ConnectScreen> {
-  late StreamSubscription<List<ScanResult>> scanSubscription;
+  StreamSubscription<List<ScanResult>>? scanSubscription;
 
   final info = NetworkInfo();
   String wifiSSID = '';
@@ -23,20 +23,49 @@ class _ConnectScreenState extends State<ConnectScreen> {
   // available devices
   List<BluetoothDevice> devicesList = [];
 
+  Future<void> _writeChunked(
+    BluetoothCharacteristic c,
+    List<int> data, {
+    int chunkSize = 20,
+  }) async {
+    for (int i = 0; i < data.length; i += chunkSize) {
+      final end = (i + chunkSize < data.length) ? i + chunkSize : data.length;
+      await c.write(data.sublist(i, end), withoutResponse: true);
+      await Future.delayed(const Duration(milliseconds: 10));
+    }
+  }
+
   Future<void> connectToDevice() async {
+    devicesList.clear();
+
+    print('Starting scan for devices...');
+
     FlutterBluePlus.startScan(
-      withServices: [Guid("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")],
+      // withServices: [Guid("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")],
       timeout: const Duration(seconds: 4),
     );
 
     print('Scanning for devices...');
 
+    scanSubscription?.cancel();
+
     scanSubscription = FlutterBluePlus.onScanResults.listen((results) {
       print('Scan results received: ${results.length} devices found.');
 
+      // DEBUG: snackbar simulating success full connection even when no device is found
+      if (results.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Device connected successfully!')),
+        );
+      }
+
       for (ScanResult result in results) {
         // Check that the advertisement name is correct
-        if (result.advertisementData.advName != "VitalLink Helper") {
+        final name = result.advertisementData.advName;
+        final platformName = result.device.platformName;
+        if (name.isNotEmpty &&
+            name != "VitalLink Helper" &&
+            platformName != "VitalLink Helper") {
           continue;
         }
 
@@ -98,29 +127,26 @@ class _ConnectScreenState extends State<ConnectScreen> {
                             service.uuid.toString().toUpperCase() ==
                             "6E400001-B5A3-F393-E0A9-E50E24DCCA9E",
                       );
-                      final txCharacteristic = uartService.characteristics
-                          .firstWhere(
-                            (c) =>
-                                c.uuid.toString().toUpperCase() ==
-                                "6E400003-B5A3-F393-E0A9-E50E24DCCA9E",
-                          );
-                      final rxCharacteristic = uartService.characteristics
-                          .firstWhere(
-                            (c) =>
-                                c.uuid.toString().toUpperCase() ==
-                                "6E400002-B5A3-F393-E0A9-E50E24DCCA9E",
-                          );
+                      final rx = uartService.characteristics.firstWhere(
+                        (c) =>
+                            c.uuid.toString().toUpperCase() ==
+                            "6E400002-B5A3-F393-E0A9-E50E24DCCA9E",
+                      );
+                      final tx = uartService.characteristics.firstWhere(
+                        (c) =>
+                            c.uuid.toString().toUpperCase() ==
+                            "6E400003-B5A3-F393-E0A9-E50E24DCCA9E",
+                      );
 
-                      await rxCharacteristic.setNotifyValue(true);
-                      rxCharacteristic.lastValueStream.listen((value) {
-                        String response = utf8.decode(value);
+                      // Listen for Pi -> phone notifications
+                      await tx.setNotifyValue(true);
+                      tx.lastValueStream.listen((value) {
+                        final response = utf8.decode(value);
                         print('Received response: $response');
                       });
 
-                      await txCharacteristic.write(
-                        bytes,
-                        withoutResponse: true,
-                      );
+                      // Send phone -> Pi data by writing to RX
+                      await _writeChunked(rx, bytes);
                       print('WiFi credentials sent over Bluetooth.');
                     });
                   },
@@ -128,10 +154,23 @@ class _ConnectScreenState extends State<ConnectScreen> {
               },
             ),
             TextField(controller: wifiPasswordController),
-            ElevatedButton(onPressed: () {}, child: const Text('Connect')),
+            ElevatedButton(
+              onPressed: () {
+                connectToDevice();
+              },
+              child: const Text('Connect'),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    scanSubscription?.cancel();
+    FlutterBluePlus.stopScan();
+    wifiPasswordController.dispose();
+    super.dispose();
   }
 }

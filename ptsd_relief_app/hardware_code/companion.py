@@ -16,14 +16,15 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
 
-from bluezero import peripheral
+from bluezero import peripheral, adapter
 
 # ----- Bluetooth setup -----
 DEVICE_NAME = "VitalLink Helper"
 NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-NUS_RX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"  # phone writes here
-NUS_TX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"  # pi notifies here
+NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"  # phone writes here
+NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"  # pi notifies here
 _rx_buffer = bytearray()
+_tx_obj = None
 
 
 # ----- Sensor setup -----
@@ -50,35 +51,34 @@ acc_ref    = root_ref.child("accel")                       # live stream + histo
 
 stop_event = threading.Event()
 
-def send_notify(periph: peripheral.Peripheral, text: str):
-    try:
-        periph.characteristics[1].set_value(list(text.encode("utf-8")))
-        periph.characteristics[1].notify()
-        print("Sent notification:", text.strip())
-    except Exception as e:
-        print("Notification error:", e)
+def send_notify_text(text: str):
+    global _tx_obj
+    if not _tx_obj:
+        print("No TX object available for notify")
+        return
+    _tx_obj.set_value(list(text.encode("utf-8")))
 
 
-def handle_config(periph: peripheral.Peripheral, cfg: dict):
-    ssid: cfg.get("ssid", "")
-    password: cfg.get("password", "")
+def handle_config(cfg: dict):
+    ssid = cfg.get("ssid", "")
+    password = cfg.get("password", "")
     uid = cfg.get("uid", "")
 
-    if not ssid or uid:
-        send_notify(periph, "ERR: missing ssid/uid\n")
+    if (not ssid) or (not uid):
+        send_notify_text("ERR: missing ssid/uid\n")
         return
 
     print(f"Received WiFi config: SSID={ssid}, PASSWORD={password}, UID={uid}")
 
-    send_notify(periph, "OK: config received\n")
+    send_notify_text("OK: config received\n")
 
 
-def try_parse_json_from_buffer(periph: peripheral.Peripheral):
+def try_parse_json_from_buffer():
     global _rx_buffer
 
     if len(_rx_buffer) > 8192:
         _rx_buffer = bytearray()
-        send_notify(periph, "ERR: buffer overflow\n")
+        send_notify_text("ERR: buffer overflow\n")
         return
     
     try:
@@ -91,58 +91,96 @@ def try_parse_json_from_buffer(periph: peripheral.Peripheral):
 
     _rx_buffer = bytearray()
     if isinstance(cfg, dict):
-        handle_config(periph, cfg)
+        handle_config(cfg)
     else:
-        send_notify(periph, "ERR: invalid JSON format\n")
+        send_notify_text("ERR: invalid JSON format\n")
 
+def uart_notify_cb(notifying, characteristic):
+    global _tx_obj
+    _tx_obj = characteristic if notifying else None
+    print("Notify", "enabled" if notifying else "disabled")
+
+def uart_write_cb(value, options):
+    global _rx_buffer
+    _rx_buffer.extend(bytes(value))
+    try_parse_json_from_buffer()
 
 def ble_server():
-    periph = peripheral.Peripheral(
-        adapter_addr=None,
+    addr = list(adapter.Adapter.available())[0].address
+    ble = peripheral.Peripheral(
+        adapter_address=addr,
         local_name=DEVICE_NAME,
         appearance= 0x0000,
-        services=[]
     )
 
-    write_char = peripheral.Characteristic(
+    ble.add_service(srv_id=1, uuid=NUS_SERVICE_UUID, primary=True)
+
+    ble.add_characteristic(
+        srv_id=1,
+        chr_id=1,
         uuid=NUS_RX_UUID,
-        properties=["write", "write-without-response"],
         value=[],
+        notifying=False,
+        flags=["write", "write-without-response"],
+        write_callback=uart_write_cb,
+        read_callback=None,
+        notify_callback=None,
     )
 
-    notify_char = peripheral.Characteristic(
+    ble.add_characteristic(
+        srv_id=1,
+        chr_id=2,
         uuid=NUS_TX_UUID,
-        properties=["notify"],
         value=[],
+        notifying=False,
+        flags=["notify"],
+        write_callback=None,
+        read_callback=None,
+        notify_callback=uart_notify_cb,
     )
-
-    nus_service = peripheral.Service(
-        uuid=NUS_SERVICE_UUID,
-        primary=True,
-        characteristics = [write_char, notify_char]
-    )
-
-    periph.add_service(nus_service)
-
-    def on_write(value):
-        global _rx_buffer
-        chunk = bytes(value)
-        _rx_buffer.extend(chunk)
-        try_parse_json_from_buffer(periph)
-
-    write_char.add_callback = on_write
 
     print(f"Advertising BLE name: {DEVICE_NAME}")
-    periph.publish()
+    ble.publish()
 
-    try:
-        while True:
-            time.sleep(0.2)
-    except KeyboardInterrupt:
-        print("Stopping BLE server...")
-        periph.stop()
-    finally:
-        periph.stop()
+    # write_char = peripheral.Characteristic(
+    #     uuid=NUS_RX_UUID,
+    #     properties=["write", "write-without-response"],
+    #     value=[],
+    # )
+
+    # notify_char = peripheral.Characteristic(
+    #     uuid=NUS_TX_UUID,
+    #     properties=["notify"],
+    #     value=[],
+    # )
+
+    # nus_service = peripheral.Service(
+    #     uuid=NUS_SERVICE_UUID,
+    #     primary=True,
+    #     characteristics = [write_char, notify_char]
+    # )
+
+    # periph.add_service(nus_service)
+
+    # def on_write(value):
+    #     global _rx_buffer
+    #     chunk = bytes(value)
+    #     _rx_buffer.extend(chunk)
+    #     try_parse_json_from_buffer(periph)
+
+    # write_char.add_callback = on_write
+
+    # print(f"Advertising BLE name: {DEVICE_NAME}")
+    # periph.publish()
+
+    # try:
+    #     while True:
+    #         time.sleep(0.2)
+    # except KeyboardInterrupt:
+    #     print("Stopping BLE server...")
+    #     periph.stop()
+    # finally:
+    #     periph.stop()
 
 
 def heartbeat_worker(
