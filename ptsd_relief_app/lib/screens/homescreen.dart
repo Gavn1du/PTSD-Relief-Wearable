@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:ptsd_relief_app/screens/historyscreen.dart';
 import 'package:ptsd_relief_app/services/auth.dart';
@@ -336,9 +337,14 @@ class _HomescreenState extends State<Homescreen> {
                               padding: const EdgeInsets.all(8.0),
                               child: Row(
                                 children: [
-                                  Text(
-                                    currentBPM.toString(),
-                                    style: TextStyle(fontSize: 20),
+                                  Consumer<Data>(
+                                    builder: (context, data, child) {
+                                      print("yippee");
+                                      return Text(
+                                        currentBPM.toString(),
+                                        style: TextStyle(fontSize: 20),
+                                      );
+                                    },
                                   ),
                                   Text('BPM'),
                                 ],

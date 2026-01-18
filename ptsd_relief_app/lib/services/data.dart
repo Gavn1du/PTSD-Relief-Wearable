@@ -5,6 +5,7 @@ import 'package:ptsd_relief_app/services/auth.dart';
 import 'dart:convert';
 
 class Data extends ChangeNotifier {
+  Map<String, dynamic> userData = {};
   Future<void> saveFirebaseData(String key, Map<String, dynamic> value) async {
     final ref = FirebaseDatabase.instance.ref();
     await ref.child(key).set(value);
@@ -50,6 +51,8 @@ class Data extends ChangeNotifier {
     // Convert the map to a JSON string
     final jsonString = jsonEncode(value);
     await prefs.setString(key, jsonString);
+    print("notifyListeners?");
+    userData = value;
     notifyListeners();
   }
 

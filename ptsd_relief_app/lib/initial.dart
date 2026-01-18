@@ -35,6 +35,7 @@ class Initial extends StatelessWidget {
         if (snapshot.hasData && snapshot.data != null) {
           Map<String, dynamic> userData = {};
           final dataSnapshot = snapshot.data!.snapshot;
+          print("DataSnapshot: $dataSnapshot");
           if (dataSnapshot.value != null) {
             userData = Map<String, dynamic>.from(dataSnapshot.value as Map);
             print("User data changed: $userData");

@@ -5,13 +5,19 @@ import 'package:ptsd_relief_app/routes.dart';
 import 'package:ptsd_relief_app/size_config.dart';
 import 'package:ptsd_relief_app/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:ptsd_relief_app/services/data.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => ThemeController(LightTheme()),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => ThemeController(LightTheme()),
+        ),
+        ChangeNotifierProvider<Data>(create: (context) => Data()),
+      ],
       child: const MyApp(),
     ),
   );
