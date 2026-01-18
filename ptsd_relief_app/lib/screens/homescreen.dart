@@ -341,7 +341,8 @@ class _HomescreenState extends State<Homescreen> {
                                     builder: (context, data, child) {
                                       print("yippee");
                                       return Text(
-                                        currentBPM.toString(),
+                                        // currentBPM.toString(),
+                                        Data().userData["BPM"].toString(),
                                         style: TextStyle(fontSize: 20),
                                       );
                                     },
