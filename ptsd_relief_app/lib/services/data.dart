@@ -5,6 +5,14 @@ import 'package:ptsd_relief_app/services/auth.dart';
 import 'dart:convert';
 
 class Data extends ChangeNotifier {
+  static Data? _instance;
+
+  factory Data() {
+    return _instance ??= Data._internal();
+  }
+
+  Data._internal();
+
   Map<String, dynamic> userData = {};
   Future<void> saveFirebaseData(String key, Map<String, dynamic> value) async {
     final ref = FirebaseDatabase.instance.ref();
@@ -351,5 +359,12 @@ class Data extends ChangeNotifier {
   static Future<void> clearAllData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    // Allow the singleton to be recreated after disposal (e.g., hot restart).
+    _instance = null;
   }
 }

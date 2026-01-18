@@ -88,7 +88,7 @@ class _LoginscreenState extends State<Loginscreen> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        "Disclaimer: This app is for education and training purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition.",
+                        "Disclaimer: This app is for educational and general wellness purposes only. It is not a medical device and is not a substitute for professional medical advice, diagnosis, or treatment. If you have health concerns, consult a qualified healthcare professional. If you are in crisis or may harm yourself, contact local emergency services immediately.",
                       ),
                     ),
                   ],
