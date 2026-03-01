@@ -14,6 +14,7 @@ from adafruit_ads1x15.analog_in import AnalogIn
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
+from motion_detection import MotionDetector
 
 
 
@@ -96,15 +97,66 @@ def heartbeat_worker(
         if remaining > 0:
             time.sleep(remaining)
 
+# def accel_worker(
+#     poll_ms=100,
+#     also_log_history_every_ms=2000
+# ):
+#     """
+#     Stream current acceleration (x,y,z,magnitude) to /sensors/accel/live and
+#     also push a throttled history entry.
+#     """
+#     last_history_ms = 0
+#     while not stop_event.is_set():
+#         try:
+#             ax, ay, az = sox.acceleration  # m/s^2
+#             mag = math.sqrt(ax*ax + ay*ay + az*az)
+#             now_ms = int(time.time() * 1000)
+
+#             live_payload = {
+#                 "x": ax, "y": ay, "z": az, "mag": mag,
+#                 "ts_client_ms": now_ms,
+#                 "ts_server": {".sv": "timestamp"},
+#             }
+#             # Overwrite live location so clients can read the latest quickly
+#             acc_ref.child("live").set(live_payload)
+
+#             # Also write a lighter history point occasionally
+#             if (now_ms - last_history_ms) >= also_log_history_every_ms:
+#                 acc_ref.child("history").push(live_payload)
+#                 last_history_ms = now_ms
+
+#         except Exception as e:
+#             print("Accel update error:", e)
+
+#         time.sleep(poll_ms / 1000.0)
 def accel_worker(
-    poll_ms=100,
+    poll_ms=20,                    # 50 Hz
     also_log_history_every_ms=2000
 ):
     """
     Stream current acceleration (x,y,z,magnitude) to /sensors/accel/live and
     also push a throttled history entry.
+
+    Adds event detection to /sensors/accel/events/<session_id>/...
+    and summary counters to /sensors/accel/event_counts/<session_id>
     """
     last_history_ms = 0
+    last_counts_upload_ms = 0
+    COUNTS_UPLOAD_EVERY_MS = 1500
+
+    # NOTE: update axis_map to match your physical mounting!
+    detector = MotionDetector(
+        session_id=session_id,
+        axis_map={"forward": "y", "lateral": "x", "vertical": "z"}  # <-- adjust
+    )
+
+    # Firebase locations
+    events_ref = acc_ref.child("events").child(session_id)
+    counts_ref = acc_ref.child("event_counts").child(session_id)
+
+    # Estimate sampling rate from poll_ms
+    fs_hz = 1000.0 / float(poll_ms)
+
     while not stop_event.is_set():
         try:
             ax, ay, az = sox.acceleration  # m/s^2
@@ -116,18 +168,51 @@ def accel_worker(
                 "ts_client_ms": now_ms,
                 "ts_server": {".sv": "timestamp"},
             }
+
             # Overwrite live location so clients can read the latest quickly
             acc_ref.child("live").set(live_payload)
 
-            # Also write a lighter history point occasionally
+            # Throttled history log
             if (now_ms - last_history_ms) >= also_log_history_every_ms:
                 acc_ref.child("history").push(live_payload)
                 last_history_ms = now_ms
+
+            # ---- Event detection ----
+            evt = detector.update(now_ms, ax, ay, az, fs_hz)
+            if evt:
+                kind = evt["kind"]
+                detail = evt.get("detail", {})
+                score = evt.get("score", None)
+
+                event_payload = {
+                    "kind": kind,
+                    "detail": detail,
+                    "score": score,
+                    "counts": detector.counts.get(kind, None),
+                    "ts_client_ms": now_ms,
+                    "ts_server": {".sv": "timestamp"},
+                }
+
+                # Push event
+                events_ref.push(event_payload)
+
+                # Also print for debugging
+                print("EVENT:", kind, detail if detail else "", ("score="+str(score) if score is not None else ""))
+
+            # ---- Periodic upload of counters + x3 completion flags ----
+            if (now_ms - last_counts_upload_ms) >= COUNTS_UPLOAD_EVERY_MS:
+                counts_ref.set({
+                    **detector.counts_payload(),
+                    "ts_client_ms": now_ms,
+                    "ts_server": {".sv": "timestamp"},
+                })
+                last_counts_upload_ms = now_ms
 
         except Exception as e:
             print("Accel update error:", e)
 
         time.sleep(poll_ms / 1000.0)
+
 
 def main():
     # Optional: set your ADS configuration here
