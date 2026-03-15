@@ -18,6 +18,16 @@ class MotionDetector:
 
     def __init__(self, session_id, axis_map=None):
         self.session_id = session_id
+        self.tracked_events = [
+            "tremor_up_down",
+            "tremor_left_right",
+            "real_tumbling",
+            "real_tripping",
+            "real_slipping",
+            "fake_jumping",
+            "fake_trip_recover",
+            "fake_slip_recover",
+        ]
 
         self.axis_map = axis_map or {
             "vertical": "y",
@@ -40,6 +50,8 @@ class MotionDetector:
         # Debounce
         self.last_event_ms = 0
         self.event_cooldown_ms = 2500
+        self.counts = {kind: 0 for kind in self.tracked_events}
+        self.last_event_kind = None
 
         # Timers
         self.last_tremor_check_ms = 0
@@ -334,6 +346,24 @@ class MotionDetector:
         self.impact_ms = None
         self.post_start_ms = None
 
+    def _record_event(self, event, now_ms):
+        kind = event.get("kind")
+        if kind in self.counts:
+            self.counts[kind] += 1
+        self.last_event_kind = kind
+        self.last_event_ms = now_ms
+
+    def counts_payload(self):
+        payload = {
+            "counts": dict(self.counts),
+            "last_event_kind": self.last_event_kind,
+            "last_event_ms": self.last_event_ms,
+            "total_events": sum(self.counts.values()),
+        }
+        for kind, count in self.counts.items():
+            payload[f"{kind}_x3_completed"] = count >= 3
+        return payload
+
     # --------------------- public API ---------------------
     def update(self, now_ms, ax, ay, az, fs_hz=50.0):
         """
@@ -353,6 +383,7 @@ class MotionDetector:
         # Tremors can be detected even during cooldown
         trem = self._detect_tremor(now_ms, fs_hz)
         if trem:
+            self._record_event(trem, now_ms)
             return trem
 
         # Debounce fall/stumble events
@@ -384,6 +415,7 @@ class MotionDetector:
             evt = self._detect_recover_stumble(now_ms)
             if evt:
                 self.last_event_ms = now_ms
+                self._record_event(evt, now_ms)
                 return evt
 
         elif self.state == "FREEFALL":
@@ -403,6 +435,7 @@ class MotionDetector:
                 self._reset_fall_state()
                 if evt:
                     self.last_event_ms = now_ms
+                    self._record_event(evt, now_ms)
                     return evt
 
         return None
