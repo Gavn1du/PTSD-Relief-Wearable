@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:network_info_plus/network_info_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:ptsd_relief_app/services/auth.dart';
 
 class ConnectScreen extends StatefulWidget {
@@ -118,9 +119,91 @@ class _ConnectScreenState extends State<ConnectScreen> {
     return 'Weak signal';
   }
 
+  Future<bool> _requestBluetoothPermissions() async {
+    final statuses =
+        await [
+          Permission.bluetooth,
+          Permission.bluetoothScan,
+          Permission.bluetoothConnect,
+          Permission.locationWhenInUse,
+        ].request();
+
+    final hasModernAndroidBluetooth =
+        (statuses[Permission.bluetoothScan]?.isGranted ?? false) &&
+        (statuses[Permission.bluetoothConnect]?.isGranted ?? false);
+    final hasGeneralBluetooth =
+        statuses[Permission.bluetooth]?.isGranted ?? false;
+    final hasLegacyScanPermission =
+        statuses[Permission.locationWhenInUse]?.isGranted ?? false;
+
+    if (hasModernAndroidBluetooth ||
+        hasGeneralBluetooth ||
+        hasLegacyScanPermission) {
+      return true;
+    }
+
+    final permanentlyDenied = statuses.values.any(
+      (status) => status.isPermanentlyDenied || status.isRestricted,
+    );
+
+    if (!mounted) return false;
+
+    setState(() {
+      statusMessage =
+          permanentlyDenied
+              ? 'Bluetooth access is blocked. Open Settings and allow Bluetooth to connect your device.'
+              : 'Bluetooth permission is needed before we can scan for your VitalLink Helper.';
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          permanentlyDenied
+              ? 'Bluetooth access is blocked. Enable it in Settings.'
+              : 'Please allow Bluetooth access to scan nearby devices.',
+        ),
+        action:
+            permanentlyDenied
+                ? SnackBarAction(label: 'Settings', onPressed: openAppSettings)
+                : null,
+      ),
+    );
+
+    return false;
+  }
+
+  Future<bool> _ensureBluetoothIsOn() async {
+    final adapterState = await FlutterBluePlus.adapterState.first;
+
+    if (adapterState == BluetoothAdapterState.on) {
+      return true;
+    }
+
+    if (!mounted) return false;
+
+    setState(() {
+      statusMessage =
+          'Bluetooth is turned off. Turn it on to scan nearby devices.';
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Turn on Bluetooth to scan nearby devices.'),
+      ),
+    );
+
+    return false;
+  }
+
   Future<void> _startScan() async {
     FocusScope.of(context).unfocus();
     scanTimer?.cancel();
+
+    final hasPermissions = await _requestBluetoothPermissions();
+    if (!hasPermissions) return;
+
+    final bluetoothReady = await _ensureBluetoothIsOn();
+    if (!bluetoothReady) return;
 
     await FlutterBluePlus.stopScan();
 

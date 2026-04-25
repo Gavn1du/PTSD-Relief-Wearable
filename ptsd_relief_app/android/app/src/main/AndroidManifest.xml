@@ -1,4 +1,27 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="false" />
+
+    <!-- Android 12+ Bluetooth runtime permissions. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- Required for BLE scanning on Android 11 and below. Also used by
+         network_info_plus to read the current Wi-Fi SSID during setup. -->
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Legacy Bluetooth declarations for Android 11 and below. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+
     <application
         android:label="ptsd_relief_app"
         android:name="${applicationName}"
