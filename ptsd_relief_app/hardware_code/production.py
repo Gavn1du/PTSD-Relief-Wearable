@@ -33,14 +33,33 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import adafruit_ads1x15.ads1115 as ADS
-import board
-import busio
 import firebase_admin
-from adafruit_ads1x15.analog_in import AnalogIn
-from adafruit_lsm6ds.lsm6dsox import LSM6DSOX
-from bluezero import adapter, peripheral
 from firebase_admin import credentials, db
+
+try:
+    import adafruit_ads1x15.ads1115 as ADS
+    import board
+    import busio
+    from adafruit_ads1x15.analog_in import AnalogIn
+    from adafruit_lsm6ds.lsm6dsox import LSM6DSOX
+
+    HARDWARE_IMPORT_ERROR = None
+except Exception as error:  # pragma: no cover - platform dependent
+    ADS = None
+    board = None
+    busio = None
+    AnalogIn = None
+    LSM6DSOX = None
+    HARDWARE_IMPORT_ERROR = error
+
+try:
+    from bluezero import adapter, peripheral
+
+    BLE_IMPORT_ERROR = None
+except Exception as error:  # pragma: no cover - platform dependent
+    adapter = None
+    peripheral = None
+    BLE_IMPORT_ERROR = error
 
 from motion_detection import MotionDetector
 
@@ -54,7 +73,7 @@ def _utc_now_iso() -> str:
 
 
 def _timestamp_ms() -> int:
-    return int(time.time() * 1000)
+    return time.time_ns() // 1_000_000
 
 
 def _sanitize_device_id(value: str) -> str:
@@ -139,12 +158,11 @@ class ProductionRuntime:
 
         self.provisioning = self._load_config()
 
-        self.i2c = busio.I2C(board.SCL, board.SDA)
-        self.sox = LSM6DSOX(self.i2c)
-        self.ads = ADS.ADS1115(self.i2c)
-        self.ads.gain = 1
-        self.ads.data_rate = 250
-        self.heartrate_sensor = AnalogIn(self.ads, ADS.P3)
+        self.i2c = None
+        self.sox = None
+        self.ads = None
+        self.heartrate_sensor = None
+        self.sensor_error = self._init_sensors()
 
     def _log(self, message: str) -> None:
         print(f"[{_utc_now_iso()}] {message}", flush=True)
@@ -156,7 +174,11 @@ class ProductionRuntime:
                 f"Firebase service account file not found: {cred_path}"
             )
         if not self.database_url:
-            raise ValueError("A Firebase Realtime Database URL is required.")
+            inferred_url = self._infer_database_url(cred_path)
+            if inferred_url:
+                self.database_url = inferred_url
+            else:
+                raise ValueError("A Firebase Realtime Database URL is required.")
 
         try:
             return firebase_admin.get_app()
@@ -166,6 +188,36 @@ class ProductionRuntime:
                 cred,
                 {"databaseURL": self.database_url},
             )
+
+    def _infer_database_url(self, cred_path: Path) -> str:
+        try:
+            payload = json.loads(cred_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return ""
+
+        project_id = str(payload.get("project_id", "")).strip()
+        if not project_id:
+            return ""
+        return f"https://{project_id}-default-rtdb.firebaseio.com/"
+
+    def _init_sensors(self) -> Optional[str]:
+        if HARDWARE_IMPORT_ERROR is not None:
+            return f"hardware imports unavailable: {HARDWARE_IMPORT_ERROR}"
+
+        try:
+            self.i2c = busio.I2C(board.SCL, board.SDA)
+            self.sox = LSM6DSOX(self.i2c)
+            self.ads = ADS.ADS1115(self.i2c)
+            self.ads.gain = 1
+            self.ads.data_rate = 250
+            self.heartrate_sensor = AnalogIn(self.ads, ADS.P3)
+            return None
+        except Exception as error:  # pragma: no cover - hardware dependent
+            self.i2c = None
+            self.sox = None
+            self.ads = None
+            self.heartrate_sensor = None
+            return str(error)
 
     def _load_config(self) -> ProvisioningConfig:
         if not self.config_path.exists():
@@ -203,6 +255,24 @@ class ProductionRuntime:
             self._tx_obj.set_value(list(message.encode("utf-8")))
         except Exception as error:  # pragma: no cover - hardware callback path
             self._log(f"BLE notify failed: {error}")
+
+    def _log_motion_event(self, event_payload: Dict[str, Any]) -> None:
+        kind = event_payload["kind"]
+        count = event_payload.get("counts")
+        score = event_payload.get("score")
+        detail = event_payload.get("detail") or {}
+
+        parts = [f"Motion event: {kind}"]
+        if count is not None:
+            parts.append(f"count={count}")
+        if score is not None:
+            try:
+                parts.append(f"score={float(score):.3f}")
+            except (TypeError, ValueError):
+                parts.append(f"score={score}")
+        if detail:
+            parts.append(f"detail={json.dumps(detail, sort_keys=True)}")
+        self._log(" | ".join(parts))
 
     def _safe_set(self, ref, payload, label: str) -> bool:
         try:
@@ -387,6 +457,9 @@ class ProductionRuntime:
     def ble_worker(self) -> None:
         ble = None
         try:
+            if BLE_IMPORT_ERROR is not None:
+                raise RuntimeError(f"BLE unavailable: {BLE_IMPORT_ERROR}")
+
             adapters = list(adapter.Adapter.available())
             if not adapters:
                 raise RuntimeError("No Bluetooth adapters available.")
@@ -424,6 +497,7 @@ class ProductionRuntime:
 
             self._log(f"Advertising BLE name: {self.device_name}")
             ble.publish()
+            self._log("BLE UART service published and waiting for client connection.")
             while not self.stop_event.wait(0.5):
                 pass
         except Exception as error:  # pragma: no cover - hardware dependent
@@ -599,7 +673,7 @@ class ProductionRuntime:
                         "accel last event",
                     )
                     self._set_user_motion(event["kind"])
-                    self._log(f"Motion event: {event['kind']}")
+                    self._log_motion_event(event_payload)
 
                 if (now_ms - last_counts_upload_ms) >= counts_every_ms:
                     self._safe_set(
@@ -628,11 +702,32 @@ class ProductionRuntime:
             detail="Loaded saved config." if self.provisioning.uid else None,
         )
 
-        workers = [
-            threading.Thread(target=self.heartbeat_worker, daemon=True),
-            threading.Thread(target=self.accel_worker, daemon=True),
-            threading.Thread(target=self.ble_worker, daemon=True),
-        ]
+        workers = []
+        degraded_reasons = []
+
+        if self.sensor_error:
+            degraded_reasons.append(f"sensors unavailable: {self.sensor_error}")
+            self._log(f"Sensors unavailable; sensor workers disabled: {self.sensor_error}")
+        else:
+            workers.extend(
+                [
+                    threading.Thread(target=self.heartbeat_worker, daemon=True),
+                    threading.Thread(target=self.accel_worker, daemon=True),
+                ]
+            )
+
+        if BLE_IMPORT_ERROR is not None:
+            degraded_reasons.append(f"BLE unavailable: {BLE_IMPORT_ERROR}")
+            self._log(f"BLE unavailable; BLE worker disabled: {BLE_IMPORT_ERROR}")
+        else:
+            workers.append(threading.Thread(target=self.ble_worker, daemon=True))
+
+        if degraded_reasons:
+            self._update_runtime_status(
+                "degraded",
+                started_at=_utc_now_iso(),
+                detail="; ".join(degraded_reasons),
+            )
 
         for worker in workers:
             worker.start()
