@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:network_info_plus/network_info_plus.dart';
@@ -119,26 +120,13 @@ class _ConnectScreenState extends State<ConnectScreen> {
     return 'Weak signal';
   }
 
-  Future<bool> _requestBluetoothPermissions() async {
-    final statuses =
-        await [
-          Permission.bluetooth,
-          Permission.bluetoothScan,
-          Permission.bluetoothConnect,
-          Permission.locationWhenInUse,
-        ].request();
+  Future<bool> _requestBluetoothPermissions({
+    String permissionAction = 'scan for your VitalLink Helper',
+  }) async {
+    final statuses = await _requestPlatformBluetoothPermissions();
+    debugPrint('Bluetooth permission check: $statuses');
 
-    final hasModernAndroidBluetooth =
-        (statuses[Permission.bluetoothScan]?.isGranted ?? false) &&
-        (statuses[Permission.bluetoothConnect]?.isGranted ?? false);
-    final hasGeneralBluetooth =
-        statuses[Permission.bluetooth]?.isGranted ?? false;
-    final hasLegacyScanPermission =
-        statuses[Permission.locationWhenInUse]?.isGranted ?? false;
-
-    if (hasModernAndroidBluetooth ||
-        hasGeneralBluetooth ||
-        hasLegacyScanPermission) {
+    if (_hasRequiredBluetoothPermissions(statuses)) {
       return true;
     }
 
@@ -152,7 +140,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       statusMessage =
           permanentlyDenied
               ? 'Bluetooth access is blocked. Open Settings and allow Bluetooth to connect your device.'
-              : 'Bluetooth permission is needed before we can scan for your VitalLink Helper.';
+              : 'Bluetooth permission is needed before we can $permissionAction.';
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -160,7 +148,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
         content: Text(
           permanentlyDenied
               ? 'Bluetooth access is blocked. Enable it in Settings.'
-              : 'Please allow Bluetooth access to scan nearby devices.',
+              : 'Please allow Bluetooth access to $permissionAction.',
         ),
         action:
             permanentlyDenied
@@ -170,6 +158,46 @@ class _ConnectScreenState extends State<ConnectScreen> {
     );
 
     return false;
+  }
+
+  Future<Map<Permission, PermissionStatus>>
+  _requestPlatformBluetoothPermissions() async {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return [
+          Permission.bluetoothScan,
+          Permission.bluetoothConnect,
+          Permission.locationWhenInUse,
+        ].request();
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return {Permission.bluetooth: await Permission.bluetooth.request()};
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        return const {};
+    }
+  }
+
+  bool _hasRequiredBluetoothPermissions(
+    Map<Permission, PermissionStatus> statuses,
+  ) {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        final hasModernAndroidBluetooth =
+            (statuses[Permission.bluetoothScan]?.isGranted ?? false) &&
+            (statuses[Permission.bluetoothConnect]?.isGranted ?? false);
+        final hasLegacyScanPermission =
+            statuses[Permission.locationWhenInUse]?.isGranted ?? false;
+        return hasModernAndroidBluetooth || hasLegacyScanPermission;
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return statuses[Permission.bluetooth]?.isGranted ?? false;
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        return true;
+    }
   }
 
   Future<bool> _ensureBluetoothIsOn() async {
@@ -260,6 +288,15 @@ class _ConnectScreenState extends State<ConnectScreen> {
     final deviceId = device.remoteId.toString();
 
     FocusScope.of(context).unfocus();
+
+    final hasPermissions = await _requestBluetoothPermissions(
+      permissionAction: 'connect to your VitalLink Helper',
+    );
+    if (!hasPermissions) return;
+
+    final bluetoothReady = await _ensureBluetoothIsOn();
+    if (!bluetoothReady) return;
+
     await FlutterBluePlus.stopScan();
 
     if (!mounted) return;
