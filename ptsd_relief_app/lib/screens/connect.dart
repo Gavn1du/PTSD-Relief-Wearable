@@ -22,6 +22,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
   static const String _txUuid = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E';
 
   final NetworkInfo info = NetworkInfo();
+  final TextEditingController wifiSsidController = TextEditingController();
   final TextEditingController wifiPasswordController = TextEditingController();
 
   StreamSubscription<List<ScanResult>>? scanSubscription;
@@ -43,11 +44,31 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 
   Future<void> _loadWifiName() async {
+    await _requestWifiNamePermission();
     final ssid = (await info.getWifiName() ?? '').replaceAll('"', '');
     if (!mounted) return;
     setState(() {
       wifiSSID = ssid;
+      if (ssid.isNotEmpty && wifiSsidController.text.trim().isEmpty) {
+        wifiSsidController.text = ssid;
+      }
     });
+  }
+
+  Future<void> _requestWifiNamePermission() async {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+        final status = await Permission.locationWhenInUse.status;
+        if (!status.isGranted && !status.isPermanentlyDenied) {
+          await Permission.locationWhenInUse.request();
+        }
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+        return;
+    }
   }
 
   void _listenForNearbyDevices() {
@@ -297,6 +318,30 @@ class _ConnectScreenState extends State<ConnectScreen> {
     final bluetoothReady = await _ensureBluetoothIsOn();
     if (!bluetoothReady) return;
 
+    await _loadWifiName();
+    final detectedSsid = (await info.getWifiName() ?? '').replaceAll('"', '');
+    final currentSsid =
+        wifiSsidController.text.trim().isNotEmpty
+            ? wifiSsidController.text.trim()
+            : detectedSsid.trim();
+    final uid = Auth().user?.uid ?? '';
+
+    if (currentSsid.isEmpty || uid.isEmpty) {
+      final missingValues = [
+        if (currentSsid.isEmpty) 'Wi-Fi network name',
+        if (uid.isEmpty) 'signed-in user',
+      ].join(' and ');
+
+      if (!mounted) return;
+      setState(() {
+        statusMessage = 'Missing $missingValues before setup can continue.';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Missing $missingValues before setup.')),
+      );
+      return;
+    }
+
     await FlutterBluePlus.stopScan();
 
     if (!mounted) return;
@@ -317,13 +362,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
         }
       }
 
-      await _loadWifiName();
-
-      final currentSsid = (await info.getWifiName() ?? '').replaceAll('"', '');
       final wifiData = {
         'ssid': currentSsid,
         'password': wifiPasswordController.text,
-        'uid': Auth().user?.uid ?? '',
+        'uid': uid,
       };
 
       final services = await device.discoverServices();
@@ -340,27 +382,37 @@ class _ConnectScreenState extends State<ConnectScreen> {
       }
 
       await tx.setNotifyValue(true);
-      tx.lastValueStream.listen((value) {
-        if (!mounted || value.isEmpty) return;
-        final response = utf8.decode(value).trim();
-        if (response.isEmpty) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(response)));
-      });
+      final responseFuture = tx.lastValueStream
+          .where((value) => value.isNotEmpty)
+          .map((value) => utf8.decode(value).trim())
+          .where((response) => response.isNotEmpty)
+          .first
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout:
+                () =>
+                    throw TimeoutException(
+                      'Timed out waiting for the device setup response.',
+                    ),
+          );
 
       await _writeChunked(rx, utf8.encode(jsonEncode(wifiData)));
+      final response = await responseFuture;
+
+      if (response.startsWith('ERR:')) {
+        throw Exception(response);
+      }
+      if (!response.startsWith('OK:')) {
+        throw Exception('Unexpected device response: $response');
+      }
 
       if (!mounted) return;
       setState(() {
-        statusMessage =
-            'Connected to ${_displayName(result)}. Wi-Fi details were sent to the device.';
+        statusMessage = 'Connected to ${_displayName(result)}. $response';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Connected to ${_displayName(result)} successfully.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(response)));
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -544,6 +596,14 @@ class _ConnectScreenState extends State<ConnectScreen> {
                   Text('Current Wi-Fi: $detectedWifi'),
                   const SizedBox(height: 12),
                   TextField(
+                    controller: wifiSsidController,
+                    decoration: const InputDecoration(
+                      labelText: 'Wi-Fi network name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
                     controller: wifiPasswordController,
                     obscureText: true,
                     decoration: const InputDecoration(
@@ -583,6 +643,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     scanTimer?.cancel();
     scanSubscription?.cancel();
     FlutterBluePlus.stopScan();
+    wifiSsidController.dispose();
     wifiPasswordController.dispose();
     super.dispose();
   }

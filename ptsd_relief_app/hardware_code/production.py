@@ -379,6 +379,15 @@ class ProductionRuntime:
         uid = str(payload.get("uid", "")).strip()
 
         if not ssid or not uid:
+            missing_fields = []
+            if not ssid:
+                missing_fields.append("ssid")
+            if not uid:
+                missing_fields.append("uid")
+            self._log(
+                "Invalid BLE provisioning payload: missing "
+                + "/".join(missing_fields)
+            )
             self._notify_client("ERR: missing ssid/uid\n")
             self._update_provisioning_status(
                 "invalid",
