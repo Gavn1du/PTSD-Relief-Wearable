@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
-import 'package:ptsd_relief_app/screens/historyscreen.dart';
 import 'package:ptsd_relief_app/services/auth.dart';
 import 'package:ptsd_relief_app/size_config.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -39,6 +38,15 @@ class _HomescreenState extends State<Homescreen> {
 
   int currentBPM = 0;
   List<BPMData> sortedBPMData = [];
+  String? selectedCheckIn;
+  DateTime? lastCheckInTime;
+
+  final List<_CheckInOption> checkInOptions = const [
+    _CheckInOption(label: 'Calm', emoji: '🙂'),
+    _CheckInOption(label: 'Okay', emoji: '😐'),
+    _CheckInOption(label: 'Anxious', emoji: '😟'),
+    _CheckInOption(label: 'Overwhelmed', emoji: '😣'),
+  ];
 
   List<Color> gradientColors = [
     AppColors.contentColorCyan,
@@ -238,6 +246,18 @@ class _HomescreenState extends State<Homescreen> {
 
         sortedBPMData.sort((a, b) => a.time.compareTo(b.time));
       }
+
+      final savedCheckIn = prefs.getString('latestCheckIn');
+      final savedCheckInTime = prefs.getString('latestCheckInTime');
+      if (mounted) {
+        setState(() {
+          selectedCheckIn = savedCheckIn;
+          lastCheckInTime =
+              savedCheckInTime == null
+                  ? null
+                  : DateTime.parse(savedCheckInTime);
+        });
+      }
     });
 
     // add example data for debug
@@ -255,6 +275,29 @@ class _HomescreenState extends State<Homescreen> {
       if (xValue < 0 || xValue > 60) continue; // Skip
       timeSpots.add(FlSpot(xValue, bpmData.bpm.toDouble()));
     }
+  }
+
+  Future<void> _saveCheckIn(String label) async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+
+    await prefs.setString('latestCheckIn', label);
+    await prefs.setString('latestCheckInTime', now.toIso8601String());
+
+    if (!mounted) return;
+    setState(() {
+      selectedCheckIn = label;
+      lastCheckInTime = now;
+    });
+  }
+
+  String get _checkInSubtitle {
+    if (selectedCheckIn == null || lastCheckInTime == null) {
+      return 'A quick check-in can help connect how you feel with what your body is doing.';
+    }
+
+    final formattedTime = DateFormat('HH:mm').format(lastCheckInTime!);
+    return 'Last check-in: $selectedCheckIn at $formattedTime';
   }
 
   @override
@@ -372,28 +415,13 @@ class _HomescreenState extends State<Homescreen> {
                           width: SizeConfig.horizontal! * 80,
                           child: Card(
                             child: Padding(
-                              padding: const EdgeInsets.all(13.0),
-                              child:
-                                  (sortedBPMData.isNotEmpty)
-                                      ? ListView.builder(
-                                        itemCount: sortedBPMData.length,
-                                        itemBuilder: (context, index) {
-                                          final bpmData = sortedBPMData[index];
-                                          return RecommendationCard(
-                                            bpm: bpmData.bpm,
-                                            time: bpmData.time,
-                                          );
-                                        },
-                                      )
-                                      : Center(
-                                        child: Text(
-                                          'No BPM history available',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                      ),
+                              padding: const EdgeInsets.all(20.0),
+                              child: _CheckInCard(
+                                subtitle: _checkInSubtitle,
+                                selectedCheckIn: selectedCheckIn,
+                                options: checkInOptions,
+                                onSelected: _saveCheckIn,
+                              ),
                             ),
                           ),
                         ),
@@ -426,6 +454,81 @@ class _HomescreenState extends State<Homescreen> {
                 ? 'nurse'
                 : 'patient',
       ),
+    );
+  }
+}
+
+class _CheckInOption {
+  const _CheckInOption({required this.label, required this.emoji});
+
+  final String label;
+  final String emoji;
+}
+
+class _CheckInCard extends StatelessWidget {
+  const _CheckInCard({
+    required this.subtitle,
+    required this.selectedCheckIn,
+    required this.options,
+    required this.onSelected,
+  });
+
+  final String subtitle;
+  final String? selectedCheckIn;
+  final List<_CheckInOption> options;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'How are you feeling right now?',
+          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          subtitle,
+          style: GoogleFonts.poppins(fontSize: 14, color: Colors.black54),
+        ),
+        const SizedBox(height: 18),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children:
+              options.map((option) {
+                final isSelected = option.label == selectedCheckIn;
+                return ChoiceChip(
+                  label: Text('${option.emoji}  ${option.label}'),
+                  selected: isSelected,
+                  onSelected: (_) => onSelected(option.label),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  labelStyle: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: isSelected ? Colors.black : Colors.black87,
+                  ),
+                );
+              }).toList(),
+        ),
+        const SizedBox(height: 14),
+        if (selectedCheckIn != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.contentColorBlue.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              selectedCheckIn == 'Calm' || selectedCheckIn == 'Okay'
+                  ? 'Thanks for checking in. Keeping these small moments gives your trends more meaning over time.'
+                  : 'Thanks for checking in. If you want support, the Tips or Chat tabs are one tap away.',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+          ),
+      ],
     );
   }
 }
