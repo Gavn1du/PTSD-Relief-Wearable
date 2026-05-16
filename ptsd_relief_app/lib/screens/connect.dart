@@ -1,12 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import 'package:ptsd_relief_app/services/auth.dart';
+import 'package:ptsd_relief_app/services/bluetooth_connection.dart';
 
 class ConnectScreen extends StatefulWidget {
   const ConnectScreen({super.key});
@@ -17,10 +18,6 @@ class ConnectScreen extends StatefulWidget {
 
 class _ConnectScreenState extends State<ConnectScreen> {
   static const String _deviceName = 'VitalLink Helper';
-  static const String _uartServiceUuid = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
-  static const String _rxUuid = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E';
-  static const String _txUuid = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E';
-
   final NetworkInfo info = NetworkInfo();
   final TextEditingController wifiSsidController = TextEditingController();
   final TextEditingController wifiPasswordController = TextEditingController();
@@ -122,6 +119,11 @@ class _ConnectScreenState extends State<ConnectScreen> {
   String _displayName(ScanResult result) {
     final advertisedName = result.advertisementData.advName.trim();
     final platformName = result.device.platformName.trim();
+
+    print(
+      'Device found: advertisedName="$advertisedName", platformName="$platformName"',
+    );
+
     if (advertisedName.isNotEmpty) {
       return advertisedName;
     }
@@ -222,7 +224,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 
   Future<bool> _ensureBluetoothIsOn() async {
-    final adapterState = await FlutterBluePlus.adapterState.first;
+    final adapterState = await _settledBluetoothAdapterState();
+    debugPrint('Bluetooth adapter state: $adapterState');
 
     if (adapterState == BluetoothAdapterState.on) {
       return true;
@@ -242,6 +245,32 @@ class _ConnectScreenState extends State<ConnectScreen> {
     );
 
     return false;
+  }
+
+  Future<BluetoothAdapterState> _settledBluetoothAdapterState() async {
+    var adapterState = await FlutterBluePlus.adapterState.first;
+
+    if (adapterState != BluetoothAdapterState.unknown &&
+        adapterState != BluetoothAdapterState.turningOn &&
+        adapterState != BluetoothAdapterState.turningOff) {
+      return adapterState;
+    }
+
+    try {
+      adapterState = await FlutterBluePlus.adapterState
+          .where(
+            (state) =>
+                state != BluetoothAdapterState.unknown &&
+                state != BluetoothAdapterState.turningOn &&
+                state != BluetoothAdapterState.turningOff,
+          )
+          .first
+          .timeout(const Duration(seconds: 1));
+    } on TimeoutException {
+      // Keep the latest transient state if the native adapter does not settle.
+    }
+
+    return adapterState;
   }
 
   Future<void> _startScan() async {
@@ -353,62 +382,19 @@ class _ConnectScreenState extends State<ConnectScreen> {
     });
 
     try {
-      try {
-        await device.connect();
-      } catch (error) {
-        final message = error.toString().toLowerCase();
-        if (!message.contains('already')) {
-          rethrow;
-        }
-      }
-
-      final wifiData = {
-        'ssid': currentSsid,
-        'password': wifiPasswordController.text,
-        'uid': uid,
-      };
-
-      final services = await device.discoverServices();
-      final uartService = _findService(services, _uartServiceUuid);
-      if (uartService == null) {
-        throw Exception('Compatible device service not found.');
-      }
-
-      final rx = _findCharacteristic(uartService, _rxUuid);
-      final tx = _findCharacteristic(uartService, _txUuid);
-
-      if (rx == null || tx == null) {
-        throw Exception('Could not open the device communication channel.');
-      }
-
-      await tx.setNotifyValue(true);
-      final responseFuture = tx.lastValueStream
-          .where((value) => value.isNotEmpty)
-          .map((value) => utf8.decode(value).trim())
-          .where((response) => response.isNotEmpty)
-          .first
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout:
-                () =>
-                    throw TimeoutException(
-                      'Timed out waiting for the device setup response.',
-                    ),
+      final response = await context
+          .read<BluetoothConnectionService>()
+          .provision(
+            device,
+            ssid: currentSsid,
+            password: wifiPasswordController.text,
+            uid: uid,
           );
-
-      await _writeChunked(rx, utf8.encode(jsonEncode(wifiData)));
-      final response = await responseFuture;
-
-      if (response.startsWith('ERR:')) {
-        throw Exception(response);
-      }
-      if (!response.startsWith('OK:')) {
-        throw Exception('Unexpected device response: $response');
-      }
 
       if (!mounted) return;
       setState(() {
         statusMessage = 'Connected to ${_displayName(result)}. $response';
+        print('Device response: $response');
       });
       ScaffoldMessenger.of(
         context,
@@ -432,47 +418,21 @@ class _ConnectScreenState extends State<ConnectScreen> {
     }
   }
 
-  BluetoothService? _findService(List<BluetoothService> services, String uuid) {
-    for (final service in services) {
-      if (service.uuid.toString().toUpperCase() == uuid) {
-        return service;
-      }
-    }
-    return null;
-  }
-
-  BluetoothCharacteristic? _findCharacteristic(
-    BluetoothService service,
-    String uuid,
-  ) {
-    for (final characteristic in service.characteristics) {
-      if (characteristic.uuid.toString().toUpperCase() == uuid) {
-        return characteristic;
-      }
-    }
-    return null;
-  }
-
-  Future<void> _writeChunked(
-    BluetoothCharacteristic characteristic,
-    List<int> data, {
-    int chunkSize = 20,
-  }) async {
-    for (int i = 0; i < data.length; i += chunkSize) {
-      final end = (i + chunkSize < data.length) ? i + chunkSize : data.length;
-      await characteristic.write(data.sublist(i, end), withoutResponse: true);
-      await Future.delayed(const Duration(milliseconds: 10));
-    }
-  }
-
   Widget _buildStatusCard(BuildContext context) {
     final theme = Theme.of(context);
+    final bluetooth = context.watch<BluetoothConnectionService>();
     final statusColor =
         isConnecting
             ? theme.colorScheme.primary
+            : bluetooth.isConnected
+            ? Colors.green
             : nearbyDevices.isNotEmpty
             ? Colors.green
             : theme.colorScheme.secondary;
+    final displayedStatus =
+        bluetooth.isConnected && !isConnecting
+            ? 'Connected to ${bluetooth.connectedDeviceName}. Receiving live heart rate updates.'
+            : statusMessage;
 
     return Card(
       child: Padding(
@@ -483,6 +443,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
             Icon(
               isConnecting
                   ? Icons.bluetooth_connected
+                  : bluetooth.isConnected
+                  ? Icons.bluetooth_connected
                   : isScanning
                   ? Icons.radar
                   : nearbyDevices.isNotEmpty
@@ -492,7 +454,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(statusMessage, style: theme.textTheme.bodyLarge),
+              child: Text(displayedStatus, style: theme.textTheme.bodyLarge),
             ),
           ],
         ),
@@ -501,9 +463,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 
   Widget _buildDeviceCard(BuildContext context, ScanResult result) {
+    final bluetooth = context.watch<BluetoothConnectionService>();
     final deviceId = result.device.remoteId.toString();
     final isThisDeviceConnecting =
-        isConnecting && connectingDeviceId == deviceId;
+        (isConnecting || bluetooth.isConnecting) &&
+        connectingDeviceId == deviceId;
+    final isThisDeviceConnected = bluetooth.isConnectedTo(result.device);
 
     return Card(
       child: ListTile(
@@ -520,9 +485,16 @@ class _ConnectScreenState extends State<ConnectScreen> {
                   height: 24,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
+                : isThisDeviceConnected
+                ? const ElevatedButton(
+                  onPressed: null,
+                  child: Text('Connected'),
+                )
                 : ElevatedButton(
                   onPressed:
-                      isConnecting ? null : () => _connectToDevice(result),
+                      isConnecting || bluetooth.isConnecting
+                          ? null
+                          : () => _connectToDevice(result),
                   child: const Text('Connect'),
                 ),
       ),
@@ -623,6 +595,26 @@ class _ConnectScreenState extends State<ConnectScreen> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
+          if (context.watch<BluetoothConnectionService>().isConnected)
+            Card(
+              child: ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.bluetooth_connected),
+                ),
+                title: Text(
+                  context
+                      .watch<BluetoothConnectionService>()
+                      .connectedDeviceName,
+                ),
+                subtitle: Text(
+                  'Active connection${context.watch<BluetoothConnectionService>().liveBpm == null ? '' : ' - ${context.watch<BluetoothConnectionService>().liveBpm} BPM'}',
+                ),
+                trailing: const ElevatedButton(
+                  onPressed: null,
+                  child: Text('Connected'),
+                ),
+              ),
+            ),
           if (nearbyDevices.isEmpty && !isScanning)
             const Card(
               child: Padding(

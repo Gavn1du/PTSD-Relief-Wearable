@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ptsd_relief_app/services/data.dart';
 import 'package:ptsd_relief_app/components/patient_card.dart';
 import 'package:ptsd_relief_app/screens/patientdetail.dart';
+import 'package:ptsd_relief_app/services/bluetooth_connection.dart';
 
 class BPMData {
   final DateTime time;
@@ -337,12 +338,15 @@ class _HomescreenState extends State<Homescreen> {
                               padding: const EdgeInsets.all(8.0),
                               child: Row(
                                 children: [
-                                  Consumer<Data>(
-                                    builder: (context, data, child) {
+                                  Consumer2<Data, BluetoothConnectionService>(
+                                    builder: (context, data, bluetooth, child) {
                                       print("yippee");
+                                      final displayedBpm =
+                                          bluetooth.liveBpm ??
+                                          data.userData["BPM"] ??
+                                          currentBPM;
                                       return Text(
-                                        // currentBPM.toString(),
-                                        Data().userData["BPM"].toString(),
+                                        displayedBpm.toString(),
                                         style: TextStyle(fontSize: 20),
                                       );
                                     },

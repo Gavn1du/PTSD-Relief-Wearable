@@ -588,6 +588,7 @@ class ProductionRuntime:
                     "heartbeat live",
                 )
                 self._log(f"Heart rate: {current_bpm} BPM")
+                self._notify_client(f"BPM:{current_bpm}\n")
                 beats_in_window = 0
                 bpm_window_started = now_mono
 

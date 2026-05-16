@@ -5,6 +5,7 @@ import 'package:ptsd_relief_app/routes.dart';
 import 'package:ptsd_relief_app/size_config.dart';
 import 'package:ptsd_relief_app/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:ptsd_relief_app/services/bluetooth_connection.dart';
 import 'package:ptsd_relief_app/services/data.dart';
 
 Future<void> main() async {
@@ -17,6 +18,9 @@ Future<void> main() async {
           create: (context) => ThemeController(LightTheme()),
         ),
         ChangeNotifierProvider<Data>(create: (context) => Data()),
+        ChangeNotifierProvider<BluetoothConnectionService>(
+          create: (context) => BluetoothConnectionService(),
+        ),
       ],
       child: const MyApp(),
     ),
