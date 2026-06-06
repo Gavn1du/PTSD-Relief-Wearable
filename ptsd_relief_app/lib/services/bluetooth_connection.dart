@@ -18,10 +18,12 @@ class BluetoothConnectionService extends ChangeNotifier {
       StreamController<String>.broadcast();
 
   int? _liveBpm;
+  DateTime? _liveBpmUpdatedAt;
   bool _isConnecting = false;
   bool _isConnected = false;
 
   int? get liveBpm => _liveBpm;
+  DateTime? get liveBpmUpdatedAt => _liveBpmUpdatedAt;
   bool get isConnecting => _isConnecting;
   bool get isConnected => _isConnected;
   String? get connectedDeviceId => _device?.remoteId.toString();
@@ -127,6 +129,7 @@ class BluetoothConnectionService extends ChangeNotifier {
       final bpm = int.tryParse(message.substring(4).trim());
       if (bpm != null) {
         _liveBpm = bpm;
+        _liveBpmUpdatedAt = DateTime.now();
         notifyListeners();
       }
       return;
@@ -146,6 +149,7 @@ class BluetoothConnectionService extends ChangeNotifier {
     _device = null;
     _isConnected = false;
     _liveBpm = null;
+    _liveBpmUpdatedAt = null;
     notifyListeners();
 
     if (device != null) {
@@ -163,6 +167,7 @@ class BluetoothConnectionService extends ChangeNotifier {
     _device = null;
     _isConnected = false;
     _liveBpm = null;
+    _liveBpmUpdatedAt = null;
     notifyListeners();
   }
 

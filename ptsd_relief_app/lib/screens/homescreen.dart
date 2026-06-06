@@ -28,16 +28,16 @@ class Homescreen extends StatefulWidget {
 }
 
 class _HomescreenState extends State<Homescreen> {
+  static const Duration _chartWindow = Duration(minutes: 5);
+
   Map<String, dynamic> firebaseData = {};
 
   int account_type = -1; // 0 = individual account, 1 = nurse, 2 = patient
 
-  late final double nowMillis;
-  late final double oneHourAgoMillis;
-  late final List<FlSpot> timeSpots;
-
   int currentBPM = 0;
   List<BPMData> sortedBPMData = [];
+  BluetoothConnectionService? _bluetooth;
+  DateTime? _lastRecordedBluetoothUpdate;
   String? selectedCheckIn;
   DateTime? lastCheckInTime;
 
@@ -54,31 +54,41 @@ class _HomescreenState extends State<Homescreen> {
   ];
 
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 16);
+    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 13);
     Widget text;
     DateTime now = DateTime.now();
-    DateTime fifteenMinutesAgo = now.subtract(const Duration(minutes: 15));
-    String formattedTime = DateFormat('HH:mm').format(fifteenMinutesAgo);
-    DateTime thirtyMinutesAgo = now.subtract(const Duration(minutes: 30));
-    String formattedTime30 = DateFormat('HH:mm').format(thirtyMinutesAgo);
-    DateTime fortyFiveMinutesAgo = now.subtract(const Duration(minutes: 45));
-    String formattedTime45 = DateFormat('HH:mm').format(fortyFiveMinutesAgo);
-    DateTime oneHourAgo = now.subtract(const Duration(hours: 1));
-    String formattedTime60 = DateFormat('HH:mm').format(oneHourAgo);
     switch (value.toInt()) {
       case 0:
-        text = Text(formattedTime60, style: style);
+        text = Text(
+          DateFormat('HH:mm').format(now.subtract(const Duration(minutes: 5))),
+          style: style,
+        );
         break;
-      case 15:
-        text = Text(formattedTime45, style: style);
+      case 1:
+        text = Text(
+          DateFormat('HH:mm').format(now.subtract(const Duration(minutes: 4))),
+          style: style,
+        );
         break;
-      case 30:
-        text = Text(formattedTime30, style: style);
+      case 2:
+        text = Text(
+          DateFormat('HH:mm').format(now.subtract(const Duration(minutes: 3))),
+          style: style,
+        );
         break;
-      case 45:
-        text = Text(formattedTime, style: style);
+      case 3:
+        text = Text(
+          DateFormat('HH:mm').format(now.subtract(const Duration(minutes: 2))),
+          style: style,
+        );
         break;
-      case 60:
+      case 4:
+        text = Text(
+          DateFormat('HH:mm').format(now.subtract(const Duration(minutes: 1))),
+          style: style,
+        );
+        break;
+      case 5:
         text = const Text('Now', style: style);
         break;
       default:
@@ -113,10 +123,7 @@ class _HomescreenState extends State<Homescreen> {
     return Text(text, style: style, textAlign: TextAlign.left);
   }
 
-  LineChartData mainData() {
-    // final now = DateTime.now();
-    // final oneHourAgo = now.subtract(const Duration(hours: 1));
-
+  LineChartData mainData(List<FlSpot> timeSpots) {
     return LineChartData(
       gridData: FlGridData(
         show: true,
@@ -164,7 +171,7 @@ class _HomescreenState extends State<Homescreen> {
         border: Border.all(color: const Color(0xff37434d)),
       ),
       minX: 0,
-      maxX: 60,
+      maxX: 5,
       minY: 30,
       maxY: 150,
       lineBarsData: [
@@ -210,41 +217,36 @@ class _HomescreenState extends State<Homescreen> {
         }
 
         if (firebaseData.containsKey('BPM')) {
-          currentBPM = firebaseData['BPM'];
+          currentBPM = int.tryParse(firebaseData['BPM'].toString()) ?? 0;
         }
       });
     });
-
-    final now = DateTime.now();
-    nowMillis = now.millisecondsSinceEpoch.toDouble();
-    oneHourAgoMillis =
-        now
-            .subtract(const Duration(hours: 1))
-            .millisecondsSinceEpoch
-            .toDouble();
-
-    timeSpots = [
-      FlSpot(oneHourAgoMillis, 3),
-      FlSpot(oneHourAgoMillis + (nowMillis - oneHourAgoMillis) * 0.25, 2),
-      FlSpot(oneHourAgoMillis + (nowMillis - oneHourAgoMillis) * 0.5, 5),
-      FlSpot(oneHourAgoMillis + (nowMillis - oneHourAgoMillis) * 0.75, 3.1),
-      FlSpot(nowMillis, 4),
-    ];
 
     // Fetch the BPM data from shared preferences
     // example data format: ["2023-10-01T12:00:00.000Z,67", "2023-10-01T12:05:00.000Z,70"]
     SharedPreferences.getInstance().then((prefs) {
       List<String>? bpmDataStrings = prefs.getStringList('bpmData');
       if (bpmDataStrings != null) {
-        sortedBPMData =
-            bpmDataStrings.map((data) {
-              final parts = data.split(',');
-              final time = DateTime.parse(parts[0]);
-              final bpm = int.parse(parts[1]);
-              return BPMData(time, bpm);
-            }).toList();
+        final cutoff = DateTime.now().subtract(_chartWindow);
+        final savedBpmData =
+            bpmDataStrings
+                .map(_parseBpmData)
+                .whereType<BPMData>()
+                .where((data) => !data.time.isBefore(cutoff))
+                .toList()
+              ..sort((a, b) => a.time.compareTo(b.time));
 
-        sortedBPMData.sort((a, b) => a.time.compareTo(b.time));
+        final combinedByTime = <int, BPMData>{
+          for (final data in savedBpmData)
+            data.time.microsecondsSinceEpoch: data,
+          for (final data in sortedBPMData.where(
+            (data) => !data.time.isBefore(cutoff),
+          ))
+            data.time.microsecondsSinceEpoch: data,
+        };
+        sortedBPMData =
+            combinedByTime.values.toList()
+              ..sort((a, b) => a.time.compareTo(b.time));
       }
 
       final savedCheckIn = prefs.getString('latestCheckIn');
@@ -259,22 +261,89 @@ class _HomescreenState extends State<Homescreen> {
         });
       }
     });
+  }
 
-    // add example data for debug
-    sortedBPMData.addAll([
-      BPMData(DateTime.now().subtract(Duration(minutes: 5)), 67),
-      BPMData(DateTime.now().subtract(Duration(minutes: 10)), 70),
-      BPMData(DateTime.now().subtract(Duration(minutes: 15)), 65),
-    ]);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
 
-    // create the timespots for the chart
-    timeSpots.clear();
-    for (var bpmData in sortedBPMData) {
-      int minutesAgo = DateTime.now().difference(bpmData.time).inMinutes;
-      double xValue = (60 - minutesAgo).toDouble();
-      if (xValue < 0 || xValue > 60) continue; // Skip
-      timeSpots.add(FlSpot(xValue, bpmData.bpm.toDouble()));
+    final bluetooth = context.read<BluetoothConnectionService>();
+    if (_bluetooth != bluetooth) {
+      _bluetooth?.removeListener(_recordLatestBluetoothBpm);
+      _bluetooth = bluetooth;
+      _bluetooth!.addListener(_recordLatestBluetoothBpm);
+      _recordLatestBluetoothBpm();
     }
+  }
+
+  BPMData? _parseBpmData(String value) {
+    final parts = value.split(',');
+    if (parts.length != 2) return null;
+
+    final time = DateTime.tryParse(parts[0]);
+    final bpm = int.tryParse(parts[1]);
+    if (time == null || bpm == null) return null;
+    return BPMData(time, bpm);
+  }
+
+  void _recordLatestBluetoothBpm() {
+    final bpm = _bluetooth?.liveBpm;
+    final receivedAt = _bluetooth?.liveBpmUpdatedAt;
+    if (bpm == null ||
+        receivedAt == null ||
+        receivedAt == _lastRecordedBluetoothUpdate) {
+      return;
+    }
+
+    _lastRecordedBluetoothUpdate = receivedAt;
+    final cutoff = receivedAt.subtract(_chartWindow);
+    final updatedData = [
+      ...sortedBPMData.where((data) => !data.time.isBefore(cutoff)),
+      BPMData(receivedAt, bpm),
+    ]..sort((a, b) => a.time.compareTo(b.time));
+
+    if (mounted) {
+      setState(() {
+        sortedBPMData = updatedData;
+      });
+    }
+    _saveBpmData(updatedData);
+  }
+
+  Future<void> _saveBpmData(List<BPMData> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'bpmData',
+      data
+          .map((sample) => '${sample.time.toIso8601String()},${sample.bpm}')
+          .toList(),
+    );
+  }
+
+  List<FlSpot> _chartSpots(int displayedBpm) {
+    final now = DateTime.now();
+    final cutoff = now.subtract(_chartWindow);
+    final spots =
+        sortedBPMData.where((data) => !data.time.isBefore(cutoff)).map((data) {
+          final elapsedMinutes =
+              data.time.difference(cutoff).inMilliseconds /
+              Duration.millisecondsPerMinute;
+          return FlSpot(
+            elapsedMinutes.clamp(0, 5).toDouble(),
+            data.bpm.toDouble(),
+          );
+        }).toList();
+
+    if (displayedBpm > 0) {
+      spots.add(FlSpot(5, displayedBpm.toDouble()));
+    }
+    return spots;
+  }
+
+  @override
+  void dispose() {
+    _bluetooth?.removeListener(_recordLatestBluetoothBpm);
+    super.dispose();
   }
 
   Future<void> _saveCheckIn(String label) async {
@@ -383,10 +452,11 @@ class _HomescreenState extends State<Homescreen> {
                                 children: [
                                   Consumer2<Data, BluetoothConnectionService>(
                                     builder: (context, data, bluetooth, child) {
-                                      print("yippee");
                                       final displayedBpm =
                                           bluetooth.liveBpm ??
-                                          data.userData["BPM"] ??
+                                          int.tryParse(
+                                            data.userData["BPM"].toString(),
+                                          ) ??
                                           currentBPM;
                                       return Text(
                                         displayedBpm.toString(),
@@ -406,7 +476,19 @@ class _HomescreenState extends State<Homescreen> {
                           child: Card(
                             child: Padding(
                               padding: const EdgeInsets.all(20.0),
-                              child: LineChart(mainData()),
+                              child:
+                                  Consumer2<Data, BluetoothConnectionService>(
+                                    builder: (context, data, bluetooth, child) {
+                                      final displayedBpm =
+                                          bluetooth.liveBpm ??
+                                          int.tryParse(
+                                            data.userData["BPM"].toString(),
+                                          ) ??
+                                          currentBPM;
+                                      final spots = _chartSpots(displayedBpm);
+                                      return LineChart(mainData(spots));
+                                    },
+                                  ),
                             ),
                           ),
                         ),
@@ -480,55 +562,60 @@ class _CheckInCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'How are you feeling right now?',
-          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          subtitle,
-          style: GoogleFonts.poppins(fontSize: 14, color: Colors.black54),
-        ),
-        const SizedBox(height: 18),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children:
-              options.map((option) {
-                final isSelected = option.label == selectedCheckIn;
-                return ChoiceChip(
-                  label: Text('${option.emoji}  ${option.label}'),
-                  selected: isSelected,
-                  onSelected: (_) => onSelected(option.label),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  labelStyle: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: isSelected ? Colors.black : Colors.black87,
-                  ),
-                );
-              }).toList(),
-        ),
-        const SizedBox(height: 14),
-        if (selectedCheckIn != null)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.contentColorBlue.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              selectedCheckIn == 'Calm' || selectedCheckIn == 'Okay'
-                  ? 'Thanks for checking in. Keeping these small moments gives your trends more meaning over time.'
-                  : 'Thanks for checking in. If you want support, the Tips or Chat tabs are one tap away.',
-              style: GoogleFonts.poppins(fontSize: 14),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'How are you feeling right now?',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
             ),
           ),
-      ],
+          const SizedBox(height: 10),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(fontSize: 14, color: Colors.black54),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children:
+                options.map((option) {
+                  final isSelected = option.label == selectedCheckIn;
+                  return ChoiceChip(
+                    label: Text('${option.emoji}  ${option.label}'),
+                    selected: isSelected,
+                    onSelected: (_) => onSelected(option.label),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    labelStyle: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: isSelected ? Colors.black : Colors.black87,
+                    ),
+                  );
+                }).toList(),
+          ),
+          const SizedBox(height: 14),
+          if (selectedCheckIn != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.contentColorBlue.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                selectedCheckIn == 'Calm' || selectedCheckIn == 'Okay'
+                    ? 'Thanks for checking in. Keeping these small moments gives your trends more meaning over time.'
+                    : 'Thanks for checking in. If you want support, the Tips or Chat tabs are one tap away.',
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

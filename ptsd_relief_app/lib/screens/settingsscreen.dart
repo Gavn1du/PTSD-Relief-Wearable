@@ -55,99 +55,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: Center(
         child:
             (account_type > -1)
-                ? Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    (account_type != 1)
-                        ? Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: TextField(
-                            style: TextStyle(color: theme.textColor),
-                            controller: _nameController,
-                            decoration: InputDecoration(
-                              labelText: 'Set Name Here',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10.0),
+                ? SafeArea(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      (account_type != 1)
+                          ? Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: TextField(
+                              style: TextStyle(color: theme.textColor),
+                              controller: _nameController,
+                              decoration: InputDecoration(
+                                labelText: 'Set Name Here',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                ),
                               ),
                             ),
+                          )
+                          : Container(),
+                      (account_type != 1)
+                          ? ElevatedButton(
+                            onPressed: () {
+                              // Implement change name functionality here
+                              print("Changing name to ${_nameController.text}");
+                              Data().setPatientName(_nameController.text).then((
+                                value,
+                              ) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Name changed successfully!'),
+                                  ),
+                                );
+                              });
+                            },
+                            child: Text('Change Name'),
+                          )
+                          : Container(),
+                      ElevatedButton(
+                        onPressed: () {
+                          context.read<ThemeController>().toggle();
+                        },
+                        child: Text("Toggle Theme"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/medsources');
+                        },
+                        child: Text("Medical Sources"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/connect');
+                        },
+                        child: Text("Connect Device"),
+                      ),
+                      SizedBox(height: SizeConfig.vertical! * 25),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
-                        )
-                        : Container(),
-                    (account_type != 1)
-                        ? ElevatedButton(
                           onPressed: () {
-                            // Implement change name functionality here
-                            print("Changing name to ${_nameController.text}");
-                            Data().setPatientName(_nameController.text).then((
-                              value,
-                            ) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Name changed successfully!'),
-                                ),
+                            // Implement logout functionality here
+                            Auth().signOut().then((_) {
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                '/',
+                                (_) => false,
                               );
                             });
                           },
-                          child: Text('Change Name'),
-                        )
-                        : Container(),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<ThemeController>().toggle();
-                      },
-                      child: Text("Toggle Theme"),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/medsources');
-                      },
-                      child: Text("Medical Sources"),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/connect');
-                      },
-                      child: Text("Connect Device"),
-                    ),
-                    SizedBox(height: SizeConfig.vertical! * 40),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          child: Text('Logout'),
                         ),
-                        onPressed: () {
-                          // Implement logout functionality here
-                          Auth().signOut().then((_) {
-                            Navigator.pushNamedAndRemoveUntil(
-                              context,
-                              '/',
-                              (_) => false,
-                            );
-                          });
-                        },
-                        child: Text('Logout'),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
+                          onPressed: _confirmAndDeleteAccount,
+                          child: const Text('Delete Account'),
                         ),
-                        onPressed: _confirmAndDeleteAccount,
-                        child: const Text('Delete Account'),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 )
                 : Container(),
       ),
