@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -5,7 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 // import 'package:gpt_markdown/gpt_markdown.dart';
-import 'package:markdown_widget/widget/markdown.dart';
+import 'package:markdown_widget/markdown_widget.dart';
 import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:chatview/chatview.dart';
 import 'package:ptsd_relief_app/components/data.dart';
@@ -25,9 +26,18 @@ class Helpscreen extends StatefulWidget {
 }
 
 class _HelpscreenState extends State<Helpscreen> {
+  static const String _assistantAvatar = 'assets/chaticon.png';
+  static const String _assistantMessageAvatar = 'assets/chaticon_padded.png';
+  static const String _disconnectedNoticeId = 'assistant-disconnected-notice';
+  static const String _disconnectedNoticeMessage =
+      'No AI assistant is connected. Connect a helper device to the app in order to activate the assistant. For more information, please click the following [link](https://sites.google.com/view/ptsdhelperapp/home/case).';
+
   late List<Message> messageList;
+  late final ChatController chatController;
   AppTheme theme = LightTheme();
   bool isDarkTheme = false;
+  bool isAssistantOnline = false;
+  Timer? _ollamaStatusTimer;
 
   String? pendingImagePath;
 
@@ -88,7 +98,7 @@ class _HelpscreenState extends State<Helpscreen> {
   Future<void> loadMessageHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final List<String>? messageJsonList = prefs.getStringList('messageHistory');
-    if (messageJsonList != null) {
+    if (messageJsonList != null && messageJsonList.isNotEmpty) {
       messageList =
           messageJsonList
               .map((jsonstr) => Message.fromJson(jsonDecode(jsonstr)))
@@ -108,6 +118,52 @@ class _HelpscreenState extends State<Helpscreen> {
       print('No message history found in SharedPreferences');
       messageList = [];
       chatController.initialMessageList = messageList;
+    }
+  }
+
+  bool _addDisconnectedNotice() {
+    if (chatController.initialMessageList.any(
+      (message) => message.id == _disconnectedNoticeId,
+    )) {
+      return false;
+    }
+
+    chatController.addMessage(
+      Message(
+        id: _disconnectedNoticeId,
+        message: _disconnectedNoticeMessage,
+        createdAt: DateTime.now(),
+        sentBy: '2',
+        messageType: MessageType.custom,
+        status: MessageStatus.delivered,
+      ),
+    );
+    return true;
+  }
+
+  Future<void> _checkAssistantStatus() async {
+    var isOnline = false;
+    try {
+      final response = await http
+          .get(Uri.parse('$ollamaUrl/api/tags'))
+          .timeout(const Duration(seconds: 2));
+      isOnline = response.statusCode == 200;
+    } catch (error) {
+      print('Ollama status check failed: $error');
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!isOnline && _addDisconnectedNotice()) {
+      await saveMessageHistory(chatController.initialMessageList);
+    }
+
+    if (isAssistantOnline != isOnline) {
+      setState(() {
+        isAssistantOnline = isOnline;
+      });
     }
   }
 
@@ -231,6 +287,9 @@ class _HelpscreenState extends State<Helpscreen> {
 
     List<Map<String, dynamic>> messages = [];
     for (Message msg in chatController.initialMessageList) {
+      if (msg.id == _disconnectedNoticeId) {
+        continue;
+      }
       messages.add({
         'role':
             msg.sentBy == chatController.currentUser.id ? 'user' : 'assistant',
@@ -309,6 +368,9 @@ class _HelpscreenState extends State<Helpscreen> {
 
     List<Map<String, dynamic>> messages = [];
     for (Message msg in chatController.initialMessageList) {
+      if (msg.id == _disconnectedNoticeId) {
+        continue;
+      }
       messages.add({
         'role':
             msg.sentBy == chatController.currentUser.id ? 'user' : 'assistant',
@@ -379,8 +441,6 @@ class _HelpscreenState extends State<Helpscreen> {
   }
   // =================================
 
-  late final ChatController chatController;
-
   void _showHideTypingIndicator() {
     chatController.setTypingIndicator = !chatController.showTypingIndicator;
   }
@@ -445,6 +505,14 @@ class _HelpscreenState extends State<Helpscreen> {
           chatController.setTypingIndicator = false;
           if (response.containsKey('error')) {
             print("Error: ${response['error']}");
+            if (_addDisconnectedNotice()) {
+              saveMessageHistory(chatController.initialMessageList);
+            }
+            if (isAssistantOnline) {
+              setState(() {
+                isAssistantOnline = false;
+              });
+            }
             return;
           } else {
             if (response['status'] == 'pending') {
@@ -485,7 +553,16 @@ class _HelpscreenState extends State<Helpscreen> {
           }
         })
         .catchError((error) {
+          chatController.setTypingIndicator = false;
           print('Error sending message: $error');
+          if (_addDisconnectedNotice()) {
+            saveMessageHistory(chatController.initialMessageList);
+          }
+          if (isAssistantOnline) {
+            setState(() {
+              isAssistantOnline = false;
+            });
+          }
         });
   }
 
@@ -522,12 +599,22 @@ class _HelpscreenState extends State<Helpscreen> {
         profilePhoto: Data.profileImage,
       ),
       otherUsers: [
-        ChatUser(id: '2', name: 'Chatbot', profilePhoto: Data.profileImage),
+        ChatUser(
+          id: '2',
+          name: 'Assistant',
+          profilePhoto: _assistantMessageAvatar,
+          imageType: ImageType.asset,
+        ),
       ],
     );
 
     // Load message history from SharedPreferences
     loadMessageHistory();
+    _checkAssistantStatus();
+    _ollamaStatusTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _checkAssistantStatus(),
+    );
 
     // Send test image
     // testSendAssetImage();
@@ -535,6 +622,12 @@ class _HelpscreenState extends State<Helpscreen> {
     // WidgetsBinding.instance.addPostFrameCallback((_) {
     //   sendChatMessage("Hello world!");
     // });
+  }
+
+  @override
+  void dispose() {
+    _ollamaStatusTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -577,19 +670,28 @@ class _HelpscreenState extends State<Helpscreen> {
               flashingCircleDarkColor: theme.flashingCircleDarkColor,
             ),
             appBar: ChatViewAppBar(
-              leading: SizedBox(width: 20),
+              leading: Padding(
+                padding: const EdgeInsets.only(left: 20, right: 8),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: Image.asset(_assistantAvatar, fit: BoxFit.contain),
+                  ),
+                ),
+              ),
               elevation: theme.elevation,
               backGroundColor: theme.appBarColor,
-              profilePicture: Data.profileImage,
               backArrowColor: theme.backArrowColor,
-              chatTitle: "Chat view",
+              chatTitle: "Assistant",
               chatTitleTextStyle: TextStyle(
                 color: theme.appBarTitleTextStyle,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
                 letterSpacing: 0.25,
               ),
-              userStatus: "online",
+              userStatus: isAssistantOnline ? "online" : "offline",
               userStatusTextStyle: const TextStyle(color: Colors.grey),
               actions: [
                 // IconButton(
@@ -737,13 +839,45 @@ class _HelpscreenState extends State<Helpscreen> {
             messageConfig: MessageConfiguration(
               // Markdown
               customMessageBuilder: (Message message) {
-                if (message.messageType != MessageType.text) {
+                if (message.messageType != MessageType.custom) {
                   return const SizedBox.shrink();
                 }
                 print('Rendering markdown for message: ${message.message}');
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: MarkdownWidget(data: message.message),
+                return Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.68,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.inComingChatBubbleColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: MarkdownWidget(
+                    data: message.message,
+                    shrinkWrap: true,
+                    selectable: false,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    config: MarkdownConfig.defaultConfig.copy(
+                      configs: [
+                        PConfig(
+                          textStyle: TextStyle(
+                            color: theme.inComingChatBubbleTextColor,
+                            fontSize: 14,
+                          ),
+                        ),
+                        LinkConfig(
+                          style: TextStyle(
+                            color: theme.inComingChatBubbleTextColor,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
               messageReactionConfig: MessageReactionConfiguration(
@@ -776,7 +910,8 @@ class _HelpscreenState extends State<Helpscreen> {
               ),
             ),
             profileCircleConfig: const ProfileCircleConfiguration(
-              profileImageUrl: Data.profileImage,
+              profileImageUrl: _assistantMessageAvatar,
+              imageType: ImageType.asset,
             ),
             repliedMessageConfig: RepliedMessageConfiguration(
               backgroundColor: theme.repliedMessageColor,
