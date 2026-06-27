@@ -55,6 +55,7 @@ class _HistoryscreenState extends State<Historyscreen> {
                 activities,
               ]);
             }
+            historyData.sort((a, b) => b[0].compareTo(a[0]));
 
             setState(() {});
           }
@@ -130,7 +131,7 @@ class _HistoryCardState extends State<HistoryCard> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             Text(
-              formatDateTime(DateTime.now()),
+              formatDateTime(widget.timestamp),
               style: TextStyle(fontSize: 20),
             ),
             IconButton(
