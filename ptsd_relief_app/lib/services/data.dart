@@ -83,11 +83,7 @@ class Data extends ChangeNotifier {
 
     final ref = FirebaseDatabase.instance.ref('users/$nurseUid/patients');
     return ref.onValue.map((event) {
-      final v = event.snapshot.value;
-      if (v == null) return <String>{};
-      if (v is List) return v.map((e) => e.toString()).toSet();
-      if (v is Map) return v.keys.map((e) => e.toString()).toSet();
-      return <String>{};
+      return _patientUidListFromDatabaseValue(event.snapshot.value).toSet();
     });
   }
 
@@ -205,22 +201,7 @@ class Data extends ChangeNotifier {
       final ref = FirebaseDatabase.instance.ref('users/$nurseUid/patients');
 
       final result = await ref.runTransaction((current) {
-        List<String> list;
-
-        // patients can be null, a List, or a Map
-        // if there are no patients for the list then the list doesn't exist on db
-        if (current == null) {
-          list = <String>[];
-        } else if (current is List) {
-          list = current.map((e) => e.toString()).toList();
-        } else if (current is Map) {
-          // If a map like {"uid1": true, "uid2": true} got stored earlier,
-          // turn it into a list of keys.
-          list = current.keys.map((e) => e.toString()).toList();
-        } else {
-          // Unexpected type — reset to list
-          list = <String>[];
-        }
+        final list = _patientUidListFromDatabaseValue(current);
 
         if (!list.contains(uid)) {
           list.add(uid);
@@ -242,39 +223,78 @@ class Data extends ChangeNotifier {
     }
   }
 
+  static List<String> _patientUidListFromDatabaseValue(Object? value) {
+    if (value == null) return <String>[];
+
+    if (value is List) {
+      return value.whereType<Object>().map((e) => e.toString()).toList();
+    }
+
+    if (value is Map) {
+      final nestedPatients = value['patients'];
+      if (nestedPatients is List) {
+        return nestedPatients
+            .whereType<Object>()
+            .map((e) => e.toString())
+            .toList();
+      }
+
+      final hasOnlyNumericKeys = value.keys.every(
+        (key) => int.tryParse(key.toString()) != null,
+      );
+      if (hasOnlyNumericKeys) {
+        return value.values
+            .whereType<Object>()
+            .map((e) => e.toString())
+            .toList();
+      }
+
+      return value.keys.map((e) => e.toString()).toList();
+    }
+
+    return <String>[];
+  }
+
   static Future<bool> removePatient(String uid) async {
-    // check if self is nurse
-    final data = await getFirebaseDataFromSharedPref('data');
-    if (data == null || data['type'] != 'nurse') {
+    try {
+      final data = await getFirebaseDataFromSharedPref('data');
+      if (data == null || data['type']?.toString().toLowerCase() != 'nurse') {
+        debugPrint('[removePatient] Not a nurse or prefs missing: $data');
+        return false;
+      }
+
+      if (uid.isEmpty) return false;
+
+      final nurseUid = Auth().user?.uid;
+      if (nurseUid == null) {
+        debugPrint('[removePatient] nurseUid is null (not logged in?)');
+        return false;
+      }
+
+      bool removed = false;
+      final ref = FirebaseDatabase.instance.ref('users/$nurseUid/patients');
+      final result = await ref.runTransaction((current) {
+        final patients = _patientUidListFromDatabaseValue(current);
+        removed = patients.remove(uid);
+
+        if (!removed) {
+          return Transaction.abort();
+        }
+
+        return Transaction.success(patients);
+      });
+
+      if (!result.committed) {
+        debugPrint('[removePatient] Patient not found or transaction aborted');
+        return false;
+      }
+
+      debugPrint('[removePatient] Success: ${result.snapshot.value}');
+      return true;
+    } catch (e) {
+      debugPrint('[removePatient] Error: $e');
       return false;
     }
-    if (uid.isEmpty) {
-      return false;
-    }
-
-    final ref = FirebaseDatabase.instance.ref();
-    final nurseUid = Auth().user?.uid;
-    // get existing patients list of nurse
-    final snapshot = await ref.child('users/$nurseUid/patients').get();
-    List<dynamic> patients = [];
-    if (snapshot.exists) {
-      print("SNAPSHOT VALUE: ${snapshot.value as Map<dynamic, dynamic>}");
-
-      patients = (snapshot.value as Map<dynamic, dynamic>)['patients'].toList();
-
-      // print("PATIENT LIST: $patientList");
-
-      // patients = List<dynamic>.from(snapshot.value! as List);
-    }
-    // check if patient exists
-    if (!patients.contains(uid)) {
-      return false;
-    }
-    patients.remove(uid);
-
-    // remove from patients list of nurse
-    await ref.child('users/$nurseUid/patients').set(patients);
-    return true;
   }
 
   static Future<void> changePatientRoom(String uid, String newRoom) async {

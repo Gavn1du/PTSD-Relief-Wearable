@@ -240,10 +240,23 @@ class _PatientdetailState extends State<Patientdetail> {
               SizedBox(
                 width: SizeConfig.horizontal! * 100,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Data.removePatient(widget.patient['uid']).then((_) {
+                  onPressed: () async {
+                    final removed = await Data.removePatient(
+                      widget.patient['uid'],
+                    );
+
+                    if (!context.mounted) return;
+
+                    if (removed) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Patient removed')),
+                      );
                       Navigator.pop(context);
-                    });
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to remove patient')),
+                      );
+                    }
                   },
                   child: Text("Remove Patient"),
                 ),
