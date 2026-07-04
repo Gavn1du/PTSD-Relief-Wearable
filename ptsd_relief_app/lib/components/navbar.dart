@@ -114,7 +114,7 @@ class _NavbarState extends State<Navbar> {
                 NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
                 NavigationDestination(
                   icon: Icon(Icons.person_add),
-                  label: 'Add Patient',
+                  label: 'Add Client',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.settings),

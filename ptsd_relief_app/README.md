@@ -1,6 +1,12 @@
 # ptsd_relief_app
 
-A new Flutter project.
+## June 27, 2026 TODOs
+- Find a way to get the Raspberry Pi connected to Wi-Fi through one of the following means:
+  - find an external display, keyboard, and mouse and connect the raspberry pi to it to then set the actual wifi
+  - get an ethernet cable and plug that in to the rpi
+- Once you are back home, check to see if the new case enclosure is correct given the parts and wire or if there needs to be further modifications
+- Experiment 4: at minimum, make sure to do heartrate experiment and gather data for it once the rpi is back online
+- Optional: consider exploring the new LLMs that are available for the rpi device to run via ollama (Gemma, Qwen, GPT-OSS models)
 
 ## Checklist
 - [X] Ollama chat system functional
@@ -9,18 +15,19 @@ A new Flutter project.
 - [X] Figma design improvments
 - [X] Proper logging of chat snippets
 - [X] Hardware: order a Raspberry Pi 5 and sensors
-- [ ] App Publication: make Apple happy
-- [ ] Bug Fixes + Feature Improvements
-    - Help Screen Refinements
-- [ ] Research Paper
+- [X] Landing website: https://sites.google.com/view/ptsdhelperapp/home
+- [-] App Publication: make Apple happy; Already done on Android
+- [X] Bug Fixes + Feature Improvements
+    - [X] Help Screen Refinements
+- [-] Research Paper
     - [X] Section 1
-    - [ ] Section 2
-    - [ ] Section 3
-    - [ ] Section 4
-    - [ ] Section 5
-    - [ ] Section 6
-    - [ ] Section 7
-    - [ ] Section 8
+    - [X] Section 2
+    - [X] Section 3
+    - [-] Section 4
+    - [X] Section 5
+    - [X] Section 6
+    - [-] Section 7
+    - [X] Section 8
 
 
 Reply Popup Pieces Path

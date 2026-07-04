@@ -109,7 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: () {
                           Navigator.pushNamed(context, '/connect');
                         },
-                        child: Text("Connect Device"),
+                        child: Text("Connect Prototype Device"),
                       ),
                       SizedBox(height: SizeConfig.vertical! * 25),
                       SizedBox(

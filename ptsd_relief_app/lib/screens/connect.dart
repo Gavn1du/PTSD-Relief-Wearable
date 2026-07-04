@@ -506,7 +506,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     final detectedWifi = wifiSSID.isEmpty ? 'Not detected' : wifiSSID;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Connect Device')),
+      appBar: AppBar(title: const Text('Connect Prototype Device')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

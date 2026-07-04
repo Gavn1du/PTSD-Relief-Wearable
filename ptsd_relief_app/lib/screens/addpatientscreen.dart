@@ -106,7 +106,7 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
                                     content: Text(
                                       ok
                                           ? 'Patient added successfully'
-                                          : 'Failed to add patient',
+                                          : 'Failed to add client',
                                     ),
                                   ),
                                 );

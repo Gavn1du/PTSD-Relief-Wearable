@@ -155,7 +155,7 @@ class _SignupscreenState extends State<Signupscreen> {
                     children: [
                       ButtonFormat(
                         isSelected: selectedRoleIndex == 0,
-                        title: "Nurse",
+                        title: "Caretaker",
                         onPressed: () {
                           setState(() {
                             selectedRoleIndex = 0;
@@ -164,7 +164,7 @@ class _SignupscreenState extends State<Signupscreen> {
                       ),
                       ButtonFormat(
                         isSelected: selectedRoleIndex == 1,
-                        title: "Patient",
+                        title: "Client",
                         onPressed: () {
                           setState(() {
                             selectedRoleIndex = 1;

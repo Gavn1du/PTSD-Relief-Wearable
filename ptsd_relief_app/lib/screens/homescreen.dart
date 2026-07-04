@@ -397,7 +397,7 @@ class _HomescreenState extends State<Homescreen> {
                           return ListView(
                             children: [
                               Text(
-                                "No patients yet. Add them from Add Patient tab.",
+                                "No clients yet. Add them from Add Client tab.",
                               ),
                             ],
                           );
