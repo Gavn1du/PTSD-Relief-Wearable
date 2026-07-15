@@ -45,3 +45,63 @@ This app is a Coding Minds student educational project. The companion device is 
 ```
 
 But the hard truth: Apple may still say, “You connect to external medical hardware and show BPM, so provide 1.4.1 documents.” If you want the best approval chance without feature removal, use **TestFlight or Custom App distribution**, not public App Store.
+
+
+
+
+
+Apple Notes:
+
+Hello,
+
+Thank you for your efforts to follow our guidelines. There are some outstanding issues that still need your attention.
+
+If you have any questions, we are here to help. Reply to this message in App Store Connect and let us know.
+
+Review Environment
+
+Submission ID: 34592683-389e-4e7f-bea6-da3ea07e9e98
+Review Device: iPad Air 11-inch (M3)
+Version reviewed: 1.0.2 (5)
+
+Guideline 1.4.1 - Safety - Physical Harm
+
+
+Issue Description
+
+The app connects to external medical hardware to provide medical services. However, to be compliant with guideline 1.4.1, you must:
+
+
+- Provide documentation from the appropriate regulatory organization demonstrating regulatory clearance for the medical hardware used by the app.
+
+Next Steps
+
+To resolve this issue, provide the documentation requested above. 
+
+Resources 
+
+Learn more about requirements for medical apps in guideline 1.4.1.
+Guideline 1.4.1 - Safety - Physical Harm
+
+
+Issue Description
+
+The app provides medical related data, health related measurements, diagnoses or treatment advice without the appropriate regulatory clearance. Please note that the app is subject to all of the local regulatory laws where the app is available.
+
+Next Steps
+
+To ensure that the information provided by the app is accurate, please attach your regulatory approval documentation in the App Review Information section of App Store Connect. Once you have posted this documentation, we will continue the review. 
+
+Resources 
+
+Learn more about requirements for medical apps in guideline 1.4.1.
+Support
+
+- Reply to this message in your preferred language if you need assistance. If you need additional support, use the Contact Us module.
+- Consult with fellow developers and Apple engineers on the Apple Developer Forums.
+- Request an App Review Appointment at Meet with Apple to discuss your app's review. Appointments subject to availability during your local business hours on Tuesdays and Thursdays.
+- Provide feedback on this message and your review experience by completing a short survey.
+
+Test on the latest betas
+
+Betas of iOS 27, iPadOS 27, macOS 27, tvOS 27 and visionOS 27 are now available. Download the latest betas to prepare your app for upcoming software releases. Learn more about installing and using Apple beta software.
