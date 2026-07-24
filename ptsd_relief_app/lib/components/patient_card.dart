@@ -53,7 +53,7 @@ class _PatientCardState extends State<PatientCard> {
               Row(
                 children: [
                   Text(
-                    "${widget.heartRate} BPM",
+                    "${widget.heartRate} bpm",
                     style: TextStyle(fontSize: 20),
                   ),
                   Padding(

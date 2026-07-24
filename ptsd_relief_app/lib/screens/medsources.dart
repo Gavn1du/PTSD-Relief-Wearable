@@ -6,29 +6,30 @@ class MedsourcesScreen extends StatelessWidget {
 
   static final List<_MedResource> _resources = [
     _MedResource(
-      title: 'National Center for PTSD',
-      url: 'https://www.ptsd.va.gov/',
+      title: 'National Institute of Mental Health',
+      url:
+          'https://www.nimh.nih.gov/health/topics/caring-for-your-mental-health',
       description:
-          'Comprehensive resource for PTSD information, research, and treatment options.',
+          'Educational information about mental well-being and when to seek professional support.',
     ),
     _MedResource(
       title: 'Anxiety and Depression Association of America (ADAA)',
       url: 'https://adaa.org/',
       description:
-          'Resources and support for anxiety, depression, and PTSD, including self-help tools.',
+          'Educational resources and self-help tools for learning about stress and emotional wellness.',
     ),
     _MedResource(
       title:
           'Substance Abuse and Mental Health Services Administration (SAMHSA)',
       url: 'https://www.samhsa.gov/',
       description:
-          'Information on mental health services, treatment locators, and support for individuals with PTSD.',
+          'Information about finding mental health and substance use support services.',
     ),
     _MedResource(
       title: 'National Alliance on Mental Illness (NAMI)',
       url: 'https://www.nami.org/',
       description:
-          'Education, support groups, and advocacy for those affected by mental illness, including PTSD.',
+          'Education, support groups, and advocacy for people interested in mental wellness.',
     ),
   ];
 
@@ -48,12 +49,12 @@ class MedsourcesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Medical Sources')),
+      appBar: AppBar(title: const Text('Wellness Resources')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            'Recommended Medical Resources for PTSD Relief:',
+            'Educational Wellness Resources:',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),

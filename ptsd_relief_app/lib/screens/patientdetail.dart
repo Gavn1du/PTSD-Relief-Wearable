@@ -187,7 +187,7 @@ class _PatientdetailState extends State<Patientdetail> {
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               Text(
-                "${widget.patient['bpm']?.toString() ?? '0'} BPM",
+                "${widget.patient['bpm']?.toString() ?? '0'} bpm",
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               SizedBox(
@@ -213,7 +213,7 @@ class _PatientdetailState extends State<Patientdetail> {
               ElevatedButton(
                 onPressed: () {
                   print(
-                    'Saving new location: ${locationController.text} to patient ${widget.patient['uid']}',
+                    'Saving new location: ${locationController.text} to client ${widget.patient['uid']}',
                   );
                   // Handle save action
                   Data.changePatientRoom(
@@ -248,17 +248,17 @@ class _PatientdetailState extends State<Patientdetail> {
                     if (!context.mounted) return;
 
                     if (removed) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Patient removed')),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('Client removed')));
                       Navigator.pop(context);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to remove patient')),
+                        SnackBar(content: Text('Failed to remove client')),
                       );
                     }
                   },
-                  child: Text("Remove Patient"),
+                  child: Text("Remove Client"),
                 ),
               ),
             ],

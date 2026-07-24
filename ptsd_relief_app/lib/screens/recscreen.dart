@@ -71,7 +71,7 @@ class _RecscreenState extends State<Recscreen> {
             // It is the next day, regenerate the whole list of tips
             print('A day has passed since the last tips were stored.');
             sendChatMessage(
-              'Given the prior conversation chain, give 5 comma separated pieces of tips or advice in english that would be helpful to a user suffering from ptsd. If there is not enough information, just give 5 comma separated general tips.',
+              'Given the prior conversation chain, give 5 comma separated general wellness tips in English for relaxation, reflection, or stress management. Do not diagnose, treat, or give medical advice. If there is not enough information, just give 5 comma separated general wellness tips.',
             ).then((response) {
               print('Response from tips request: $response');
               if (response.containsKey('error')) {
@@ -118,7 +118,7 @@ class _RecscreenState extends State<Recscreen> {
       print('No common tips found in SharedPreferences');
       // get the new list of tips and store it
       sendChatMessage(
-        'Given the prior conversation chain, give 5 comma separated pieces of tips or advice in english that would be helpful to a user suffering from ptsd. If there is not enough information, just give 5 comma separated general tips.',
+        'Given the prior conversation chain, give 5 comma separated general wellness tips in English for relaxation, reflection, or stress management. Do not diagnose, treat, or give medical advice. If there is not enough information, just give 5 comma separated general wellness tips.',
       ).then((response) {
         print('Response from tips request: $response');
         if (response.containsKey('error')) {

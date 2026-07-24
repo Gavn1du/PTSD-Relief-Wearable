@@ -103,13 +103,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: () {
                           Navigator.pushNamed(context, '/medsources');
                         },
-                        child: Text("Medical Sources"),
+                        child: Text("Wellness Resources"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           Navigator.pushNamed(context, '/connect');
                         },
-                        child: Text("Connect Prototype Device"),
+                        child: Text("Connect Optional Accessory"),
                       ),
                       SizedBox(height: SizeConfig.vertical! * 25),
                       SizedBox(

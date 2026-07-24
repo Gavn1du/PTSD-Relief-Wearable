@@ -31,7 +31,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
   String? connectingDeviceId;
   String wifiSSID = '';
   String statusMessage =
-      'Tap "Scan Nearby Devices" to look for your VitalLink Helper.';
+      'Tap "Scan Nearby Accessories" to look for your VitalLink Helper.';
 
   @override
   void initState() {
@@ -92,7 +92,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
         setState(() {
           nearbyDevices = [...nearbyDevices, result];
           statusMessage =
-              'Device found nearby. Tap it below to connect and finish setup.';
+              'Accessory found nearby. Tap it below to connect and finish setup.';
         });
       }
 
@@ -100,7 +100,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Nearby device found. Tap it below to connect.'),
+            content: Text('Nearby accessory found. Tap it below to connect.'),
           ),
         );
         _finishScan(foundDevice: true);
@@ -144,7 +144,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 
   Future<bool> _requestBluetoothPermissions({
-    String permissionAction = 'scan for your VitalLink Helper',
+    String permissionAction = 'scan for your VitalLink Helper accessory',
   }) async {
     final statuses = await _requestPlatformBluetoothPermissions();
     debugPrint('Bluetooth permission check: $statuses');
@@ -162,7 +162,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     setState(() {
       statusMessage =
           permanentlyDenied
-              ? 'Bluetooth access is blocked. Open Settings and allow Bluetooth to connect your device.'
+              ? 'Bluetooth access is blocked. Open Settings and allow Bluetooth to connect your accessory.'
               : 'Bluetooth permission is needed before we can $permissionAction.';
     });
 
@@ -235,12 +235,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
 
     setState(() {
       statusMessage =
-          'Bluetooth is turned off. Turn it on to scan nearby devices.';
+          'Bluetooth is turned off. Turn it on to scan nearby accessories.';
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Turn on Bluetooth to scan nearby devices.'),
+        content: Text('Turn on Bluetooth to scan nearby accessories.'),
       ),
     );
 
@@ -289,7 +289,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     setState(() {
       nearbyDevices = [];
       isScanning = true;
-      statusMessage = 'Scanning the area for nearby VitalLink devices...';
+      statusMessage = 'Scanning the area for nearby VitalLink accessories...';
     });
 
     scanTimer = Timer(const Duration(seconds: 6), () {
@@ -325,10 +325,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
       isScanning = false;
       if (nearbyDevices.isNotEmpty || foundDevice) {
         statusMessage =
-            'Device found nearby. Tap it below to connect and finish setup.';
+            'Accessory found nearby. Tap it below to connect and finish setup.';
       } else {
         statusMessage =
-            'No VitalLink device was found nearby. Move closer and scan again.';
+            'No VitalLink accessory was found nearby. Move closer and scan again.';
       }
     });
   }
@@ -406,7 +406,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             'Connection failed. Please scan again and try reconnecting.';
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not connect to the device: $error')),
+        SnackBar(content: Text('Could not connect to the accessory: $error')),
       );
     } finally {
       if (mounted) {
@@ -431,7 +431,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             : theme.colorScheme.secondary;
     final displayedStatus =
         bluetooth.isConnected && !isConnecting
-            ? 'Connected to ${bluetooth.connectedDeviceName}. Receiving live heart rate updates.'
+            ? 'Connected to ${bluetooth.connectedDeviceName}. Receiving optional wellness accessory samples.'
             : statusMessage;
 
     return Card(
@@ -506,7 +506,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     final detectedWifi = wifiSSID.isEmpty ? 'Not detected' : wifiSSID;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Connect Prototype Device')),
+      appBar: AppBar(title: const Text('Connect Optional Accessory')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -519,12 +519,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Step 1: Scan nearby devices',
+                    'Step 1: Scan nearby accessories',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'We will look around for your VitalLink Helper and show it here when it is found. You do not need to type the device name.',
+                    'We will look around for your VitalLink Helper and show it here when it is found. You do not need to type the accessory name.',
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -582,7 +582,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                       labelText: 'Wi-Fi password',
                       border: OutlineInputBorder(),
                       helperText:
-                          'Used to help the device join the same network.',
+                          'Used to help the accessory join the same network.',
                     ),
                   ),
                 ],
@@ -591,7 +591,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Nearby Devices',
+            'Nearby Accessories',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -607,7 +607,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                       .connectedDeviceName,
                 ),
                 subtitle: Text(
-                  'Active connection${context.watch<BluetoothConnectionService>().liveBpm == null ? '' : ' - ${context.watch<BluetoothConnectionService>().liveBpm} BPM'}',
+                  'Active connection${context.watch<BluetoothConnectionService>().liveBpm == null ? '' : ' - ${context.watch<BluetoothConnectionService>().liveBpm} bpm sample'}',
                 ),
                 trailing: const ElevatedButton(
                   onPressed: null,
@@ -620,7 +620,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Text(
-                  'No compatible devices are listed yet. Start a scan and keep the device nearby.',
+                  'No compatible accessories are listed yet. Start a scan and keep the accessory nearby.',
                 ),
               ),
             ),

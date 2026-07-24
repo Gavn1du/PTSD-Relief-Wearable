@@ -30,7 +30,9 @@ class _HelpscreenState extends State<Helpscreen> {
   static const String _assistantMessageAvatar = 'assets/chaticon_padded.png';
   static const String _disconnectedNoticeId = 'assistant-disconnected-notice';
   static const String _disconnectedNoticeMessage =
-      'No AI assistant is connected. Connect a helper device to the app in order to activate the assistant. For more information, please click the following [link](https://sites.google.com/view/ptsdhelperapp/home/case).';
+      'No wellness assistant is connected. Connect your optional helper accessory to activate chat.';
+  static const String _wellnessSystemPrompt =
+      'You are a general wellness assistant. Offer low-risk relaxation, reflection, organization, and stress-management ideas only. Do not diagnose, treat, monitor, or give medical advice. Tell users to contact qualified professionals for medical concerns and emergency services for urgent safety issues.';
 
   late List<Message> messageList;
   late final ChatController chatController;
@@ -285,7 +287,9 @@ class _HelpscreenState extends State<Helpscreen> {
     print('Sending request to: $uri');
     print('Image path: $imagePath');
 
-    List<Map<String, dynamic>> messages = [];
+    List<Map<String, dynamic>> messages = [
+      {'role': 'system', 'content': _wellnessSystemPrompt},
+    ];
     for (Message msg in chatController.initialMessageList) {
       if (msg.id == _disconnectedNoticeId) {
         continue;
@@ -366,7 +370,9 @@ class _HelpscreenState extends State<Helpscreen> {
     print('Sending request to: $uri');
     print('Message: $message');
 
-    List<Map<String, dynamic>> messages = [];
+    List<Map<String, dynamic>> messages = [
+      {'role': 'system', 'content': _wellnessSystemPrompt},
+    ];
     for (Message msg in chatController.initialMessageList) {
       if (msg.id == _disconnectedNoticeId) {
         continue;

@@ -5,7 +5,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:ptsd_relief_app/screens/loginscreen.dart';
 import 'package:ptsd_relief_app/screens/homescreen.dart';
 import 'package:ptsd_relief_app/services/data.dart';
-import 'package:ptsd_relief_app/services/llm.dart';
 
 class Initial extends StatelessWidget {
   const Initial({super.key});
@@ -42,7 +41,8 @@ class Initial extends StatelessWidget {
           }
           Data().saveFirebaseDataToSharedPref("data", userData);
 
-          // Check for BPM anomalies
+          // Keep live data synced for display. The app does not generate
+          // health conclusions or condition-specific advice from sensor data.
           /**
              * // Process the history data as needed
                     print('History data loaded: $value');
@@ -63,31 +63,6 @@ class Initial extends StatelessWidget {
                       ]);
                     }
             */
-          if (userData.containsKey("BPM") && userData["BPM"] > 100) {
-            DateTime now = DateTime.now();
-            int highestHeartRate = userData["BPM"];
-            String aiTitle = "";
-
-            // Generate AI suggested activities based on BPM
-            String prompt =
-                "Generate a comma separated list of 1-10 suggested activites for someone with a BPM of $highestHeartRate. The activities should be suitable for someone with PTSD.";
-            Llm().sendMessage(prompt).then((response) {
-              // print for now
-              print("AI suggested activities: $response");
-              List<String> activities = response["message"]["content"].split(
-                ',',
-              );
-              // Keep only the first 10 activities
-              activities = activities.take(10).toList();
-              String activitiesString = activities.join(',');
-
-              String entry =
-                  "$now,$highestHeartRate,$aiTitle,$activitiesString";
-              Data.saveAnomaly(entry);
-            });
-
-            // Data.saveAnomaly("");
-          }
         }
 
         return const Homescreen();

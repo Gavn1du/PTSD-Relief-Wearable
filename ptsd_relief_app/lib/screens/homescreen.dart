@@ -32,7 +32,7 @@ class _HomescreenState extends State<Homescreen> {
 
   Map<String, dynamic> firebaseData = {};
 
-  int account_type = -1; // 0 = individual account, 1 = nurse, 2 = patient
+  int account_type = -1; // 0 = individual account, 1 = supporter, 2 = member
 
   int currentBPM = 0;
   List<BPMData> sortedBPMData = [];
@@ -362,7 +362,7 @@ class _HomescreenState extends State<Homescreen> {
 
   String get _checkInSubtitle {
     if (selectedCheckIn == null || lastCheckInTime == null) {
-      return 'A quick check-in can help connect how you feel with what your body is doing.';
+      return 'A quick check-in can help you notice patterns in your day.';
     }
 
     final formattedTime = DateFormat('HH:mm').format(lastCheckInTime!);
@@ -464,7 +464,7 @@ class _HomescreenState extends State<Homescreen> {
                                       );
                                     },
                                   ),
-                                  Text('BPM'),
+                                  Text('Pulse'),
                                 ],
                               ),
                             ),
@@ -507,6 +507,17 @@ class _HomescreenState extends State<Homescreen> {
                             ),
                           ),
                         ),
+                        SizedBox(
+                          width: SizeConfig.horizontal! * 80,
+                          child: const Card(
+                            child: Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: Text(
+                                'For general wellness and education only. This app is not for diagnosis, treatment, monitoring, emergencies, or medical decisions.',
+                              ),
+                            ),
+                          ),
+                        ),
                         // SizedBox(
                         //   height: SizeConfig.vertical! * 6,
                         //   width: SizeConfig.horizontal! * 80,
@@ -516,7 +527,7 @@ class _HomescreenState extends State<Homescreen> {
                         //       child: Row(
                         //         children: [
                         //           Text('67', style: TextStyle(fontSize: 20)),
-                        //           Text('BPM'),
+                        //           Text('Pulse'),
                         //         ],
                         //       ),
                         //     ),
@@ -642,7 +653,7 @@ class _RecommendationCardState extends State<RecommendationCard> {
             Row(
               children: [
                 Text(widget.bpm.toString(), style: TextStyle(fontSize: 20)),
-                Text('BPM'),
+                Text('bpm sample'),
               ],
             ),
             Text(

@@ -44,13 +44,13 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
                 style: TextStyle(color: theme.textColor),
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
-                  labelText: 'Patient Name',
+                  labelText: 'Client Name',
                 ),
                 onChanged: _onQueryChanged,
               ),
             ),
 
-            // 1) Stream the nurse's current patients so we can exclude them live
+            // 1) Stream the current client list so we can exclude them live
             Expanded(
               child: StreamBuilder<Set<String>>(
                 stream: Data.nursePatientIdsStream(),
@@ -72,7 +72,7 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
                       if (list.isEmpty) {
                         return Center(
                           child: Text(
-                            'No patients found',
+                            'No clients found',
                             style: TextStyle(color: theme.textColor),
                           ),
                         );
@@ -105,7 +105,7 @@ class _AddpatientscreenState extends State<Addpatientscreen> {
                                   SnackBar(
                                     content: Text(
                                       ok
-                                          ? 'Patient added successfully'
+                                          ? 'Client added successfully'
                                           : 'Failed to add client',
                                     ),
                                   ),

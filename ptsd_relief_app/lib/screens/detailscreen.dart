@@ -54,7 +54,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 children: [
                   SizedBox(height: SizeConfig.vertical! * 2),
                   Text(
-                    "Highest Heartrate: ${widget.highestHeartrate} bpm",
+                    "Highest pulse sample: ${widget.highestHeartrate} bpm",
                     style: TextStyle(fontSize: 20, color: Colors.white),
                   ),
                   // Text(
@@ -63,7 +63,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   // ),
                   SizedBox(height: SizeConfig.vertical! * 1),
                   Text(
-                    "Suggested Activities",
+                    "Wellness Activities",
                     style: TextStyle(fontSize: 20, color: Colors.white),
                   ),
                   Expanded(
