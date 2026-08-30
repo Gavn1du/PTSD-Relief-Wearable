@@ -4,6 +4,50 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+class FallDetectionEvent {
+  const FallDetectionEvent({required this.kind, required this.recordedAt});
+
+  final String? kind;
+  final DateTime recordedAt;
+
+  bool get detected => kind != null;
+
+  String get description {
+    switch (kind) {
+      case 'real_tumbling':
+        return 'tumbling';
+      case 'real_tripping':
+        return 'tripping';
+      case 'real_slipping':
+        return 'slipping';
+      default:
+        return 'fall-like motion';
+    }
+  }
+
+  static FallDetectionEvent? tryParse(String message) {
+    final parts = message.trim().split(':');
+    if (parts.length != 3 || parts[0] != 'FALL') return null;
+
+    final kind = switch (parts[1]) {
+      'OK' => null,
+      'TB' => 'real_tumbling',
+      'TR' => 'real_tripping',
+      'SL' => 'real_slipping',
+      _ => '',
+    };
+    if (kind == '') return null;
+
+    final timestampMs = int.tryParse(parts[2], radix: 16);
+    if (timestampMs == null || timestampMs <= 0) return null;
+
+    return FallDetectionEvent(
+      kind: kind,
+      recordedAt: DateTime.fromMillisecondsSinceEpoch(timestampMs),
+    );
+  }
+}
+
 class BluetoothConnectionService extends ChangeNotifier {
   static const String uartServiceUuid = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
   static const String rxUuid = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E';
@@ -19,11 +63,17 @@ class BluetoothConnectionService extends ChangeNotifier {
 
   int? _liveBpm;
   DateTime? _liveBpmUpdatedAt;
+  FallDetectionEvent? _lastFallEvent;
+  DateTime? _fallStatusUpdatedAt;
+  bool _fallMonitoringActive = false;
   bool _isConnecting = false;
   bool _isConnected = false;
 
   int? get liveBpm => _liveBpm;
   DateTime? get liveBpmUpdatedAt => _liveBpmUpdatedAt;
+  FallDetectionEvent? get lastFallEvent => _lastFallEvent;
+  DateTime? get fallStatusUpdatedAt => _fallStatusUpdatedAt;
+  bool get fallMonitoringActive => _fallMonitoringActive;
   bool get isConnecting => _isConnecting;
   bool get isConnected => _isConnected;
   String? get connectedDeviceId => _device?.remoteId.toString();
@@ -135,6 +185,15 @@ class BluetoothConnectionService extends ChangeNotifier {
       return;
     }
 
+    final fallUpdate = FallDetectionEvent.tryParse(message);
+    if (fallUpdate != null) {
+      _fallMonitoringActive = true;
+      _fallStatusUpdatedAt = fallUpdate.recordedAt;
+      _lastFallEvent = fallUpdate.detected ? fallUpdate : null;
+      notifyListeners();
+      return;
+    }
+
     _messages.add(message);
   }
 
@@ -150,6 +209,7 @@ class BluetoothConnectionService extends ChangeNotifier {
     _isConnected = false;
     _liveBpm = null;
     _liveBpmUpdatedAt = null;
+    _fallMonitoringActive = false;
     notifyListeners();
 
     if (device != null) {
@@ -168,6 +228,7 @@ class BluetoothConnectionService extends ChangeNotifier {
     _isConnected = false;
     _liveBpm = null;
     _liveBpmUpdatedAt = null;
+    _fallMonitoringActive = false;
     notifyListeners();
   }
 

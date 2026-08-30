@@ -380,26 +380,38 @@ class MotionDetector:
         mag = math.sqrt(ax * ax + ay * ay + az * az)
         self.buffer.append((now_ms, ax, ay, az, mag))
 
-        # Tremors can be detected even during cooldown
-        trem = self._detect_tremor(now_ms, fs_hz)
-        if trem:
-            self._record_event(trem, now_ms)
-            return trem
+        # A fall sequence takes priority over tremor classification. Otherwise,
+        # a high-motion post-impact window can look oscillatory and prevent the
+        # POST state from ever completing.
+        if self.state == "IDLE" and mag >= self.FREEFALL_MAG_MAX:
+            trem = self._detect_tremor(now_ms, fs_hz)
+            if trem:
+                self._record_event(trem, now_ms)
+                return trem
 
-        # Debounce fall/stumble events
-        if (now_ms - self.last_event_ms) < self.event_cooldown_ms:
+        # Cooldown suppresses repeat idle events, but must not suppress the
+        # start or completion of a freefall/impact sequence.
+        if (
+            self.state == "IDLE"
+            and mag >= self.FREEFALL_MAG_MAX
+            and (now_ms - self.last_event_ms) < self.event_cooldown_ms
+        ):
             return None
 
         # False-flag: strong jerk but no freefall/impact structure -> ignore
-        recent = self._window(now_ms, 400)
-        if len(recent) >= 6:
-            mags = [s[4] for s in recent]
-            jerks = self._jerk_mag_series(recent)
-            if jerks:
-                peak = max(abs(j) for j in jerks)
-                if peak >= self.CLAP_HANDSHAKE_JERK_MIN:
-                    if min(mags) > self.FREEFALL_MAG_MAX and max(mags) < self.IMPACT_MAG_MIN:
-                        return None
+        if self.state == "IDLE":
+            recent = self._window(now_ms, 400)
+            if len(recent) >= 6:
+                mags = [s[4] for s in recent]
+                jerks = self._jerk_mag_series(recent)
+                if jerks:
+                    peak = max(abs(j) for j in jerks)
+                    if peak >= self.CLAP_HANDSHAKE_JERK_MIN:
+                        if (
+                            min(mags) > self.FREEFALL_MAG_MAX
+                            and max(mags) < self.IMPACT_MAG_MIN
+                        ):
+                            return None
 
         # ----------------- Fall state machine -----------------
         if self.state == "IDLE":

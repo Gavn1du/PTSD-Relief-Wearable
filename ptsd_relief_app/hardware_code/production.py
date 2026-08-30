@@ -135,10 +135,13 @@ class ProductionRuntime:
         self.stop_event = threading.Event()
         self.sensor_lock = threading.Lock()
         self.config_lock = threading.Lock()
+        self.ble_notify_lock = threading.Lock()
 
         self._rx_buffer = bytearray()
         self._tx_obj = None
         self._ble_peripheral = None
+        self._last_fall_kind = None
+        self._last_fall_at_ms = None
 
         self.firebase_app = self._init_firebase()
 
@@ -252,9 +255,21 @@ class ProductionRuntime:
         if not self._tx_obj:
             return
         try:
-            self._tx_obj.set_value(list(message.encode("utf-8")))
+            with self.ble_notify_lock:
+                self._tx_obj.set_value(list(message.encode("utf-8")))
         except Exception as error:  # pragma: no cover - hardware callback path
             self._log(f"BLE notify failed: {error}")
+
+    def _notify_fall_status(self, event_kind=None, timestamp_ms=None) -> None:
+        """Send one MTU-sized fall update over the BLE UART channel."""
+        code_by_kind = {
+            "real_tumbling": "TB",
+            "real_tripping": "TR",
+            "real_slipping": "SL",
+        }
+        code = code_by_kind.get(event_kind, "OK")
+        recorded_at_ms = timestamp_ms or _timestamp_ms()
+        self._notify_client(f"FALL:{code}:{recorded_at_ms:x}\n")
 
     def _log_motion_event(self, event_payload: Dict[str, Any]) -> None:
         kind = event_payload["kind"]
@@ -457,6 +472,11 @@ class ProductionRuntime:
     def _uart_notify_cb(self, notifying, characteristic) -> None:
         self._tx_obj = characteristic if notifying else None
         self._log(f"BLE notifications {'enabled' if notifying else 'disabled'}")
+        if notifying:
+            self._notify_fall_status(
+                self._last_fall_kind,
+                self._last_fall_at_ms,
+            )
 
     def _uart_write_cb(self, value, options) -> None:
         del options
@@ -684,6 +704,14 @@ class ProductionRuntime:
                     )
                     self._set_user_motion(event["kind"])
                     self._log_motion_event(event_payload)
+                    if event["kind"] in {
+                        "real_tumbling",
+                        "real_tripping",
+                        "real_slipping",
+                    }:
+                        self._last_fall_kind = event["kind"]
+                        self._last_fall_at_ms = now_ms
+                        self._notify_fall_status(event["kind"], now_ms)
 
                 if (now_ms - last_counts_upload_ms) >= counts_every_ms:
                     self._safe_set(

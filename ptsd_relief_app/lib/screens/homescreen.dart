@@ -12,6 +12,7 @@ import 'package:ptsd_relief_app/services/data.dart';
 import 'package:ptsd_relief_app/components/patient_card.dart';
 import 'package:ptsd_relief_app/screens/patientdetail.dart';
 import 'package:ptsd_relief_app/services/bluetooth_connection.dart';
+import 'package:ptsd_relief_app/components/fall_detection_card.dart';
 
 class BPMData {
   final DateTime time;
@@ -509,11 +510,23 @@ class _HomescreenState extends State<Homescreen> {
                         ),
                         SizedBox(
                           width: SizeConfig.horizontal! * 80,
+                          child: Consumer<BluetoothConnectionService>(
+                            builder: (context, bluetooth, child) {
+                              return FallDetectionCard(
+                                isConnected: bluetooth.isConnected,
+                                isMonitoring: bluetooth.fallMonitoringActive,
+                                lastFallEvent: bluetooth.lastFallEvent,
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: SizeConfig.horizontal! * 80,
                           child: const Card(
                             child: Padding(
                               padding: EdgeInsets.all(12.0),
                               child: Text(
-                                'For general wellness and education only. This app is not for diagnosis, treatment, monitoring, emergencies, or medical decisions.',
+                                'For general wellness and informational use only. Fall and pulse indicators can be wrong and are not a substitute for professional monitoring, diagnosis, treatment, or emergency services.',
                               ),
                             ),
                           ),
