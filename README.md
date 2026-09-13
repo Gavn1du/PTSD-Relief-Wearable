@@ -29,6 +29,11 @@ The repository root includes several physical design artifacts for the wearable 
 - `.stl` files for printable parts such as the case, lid, and power button
 - `.3mf` and `.gcode.3mf` files for sliced/print-ready build outputs
 
+The FreeCAD source now includes a curved upper-arm underside and four rounded
+slots for two 25 mm Velcro straps. Use `PTSD-App-Helper-Case-Arm.stl` for the new
+case; the older print files retain the previous geometry. See
+[arm-mount dimensions, routing, and validation](cad/ARM-MOUNT.md) for details.
+
 ### `ptsd_relief_app/`
 
 This is the main software project. It contains:

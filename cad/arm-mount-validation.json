@@ -1,0 +1,102 @@
+{
+  "parameters_mm": {
+    "arm_radius": 80.0,
+    "center_addition": 2.0,
+    "strap_width": 25.0,
+    "slot_length": 28.0,
+    "slot_gap": 4.0,
+    "ear_radial_thickness": 4.5,
+    "ear_extension": 14.0,
+    "ear_root_overlap": 6.0,
+    "ear_length": 39.0,
+    "strap_center_spacing": 48.0,
+    "edge_round": 0.8
+  },
+  "case_valid": true,
+  "case_solids": 1,
+  "mesh_closed": true,
+  "mesh_facets": 65268,
+  "original_case_volume_mm3": 104021.23329984781,
+  "revised_case_volume_mm3": 155857.4831764715,
+  "original_material_removed_mm3": 0.0,
+  "new_intrusion_above_original_floor_mm3": 0.0,
+  "transverse_sag_at_case_edge_mm": 10.854029368659369,
+  "revised_bounds_xyz_mm": [
+    98.54880000000001,
+    53.19156938201396,
+    108.4694910000002
+  ],
+  "slot_centers_body_local_mm": [
+    {
+      "x": -53.8244,
+      "y": -17.3508910000002,
+      "length": 28.0,
+      "gap": 4.0
+    },
+    {
+      "x": -53.8244,
+      "y": 76.1186,
+      "length": 28.0,
+      "gap": 4.0
+    },
+    {
+      "x": -5.824399999999997,
+      "y": -17.3508910000002,
+      "length": 28.0,
+      "gap": 4.0
+    },
+    {
+      "x": -5.824399999999997,
+      "y": 76.1186,
+      "length": 28.0,
+      "gap": 4.0
+    }
+  ],
+  "component_checks": {
+    "PCB_Component": {
+      "label": "PCB Component",
+      "baseline_intersection_mm3": 0.0,
+      "revised_intersection_mm3": 0.0,
+      "new_material_intersection_mm3": 0.0
+    },
+    "PCB_Component001": {
+      "label": "PCB Component001",
+      "baseline_intersection_mm3": 0.0,
+      "revised_intersection_mm3": 0.0,
+      "new_material_intersection_mm3": 0.0
+    },
+    "RP_004882_DD___Pi_5_Mechanical_Reference_3D_model_Iss1": {
+      "label": "RP-004882-DD - Pi 5 Mechanical Reference 3D model Iss1",
+      "baseline_intersection_mm3": 2.955945125187683,
+      "revised_intersection_mm3": 2.955945125187706,
+      "new_material_intersection_mm3": 0.0
+    },
+    "Body002": {
+      "label": "Body002",
+      "baseline_intersection_mm3": 0.0,
+      "revised_intersection_mm3": 0.0,
+      "new_material_intersection_mm3": 0.0
+    },
+    "Body005": {
+      "label": "Lid",
+      "baseline_intersection_mm3": 35.17977504069681,
+      "revised_intersection_mm3": 35.17977504073213,
+      "new_material_intersection_mm3": 0.0
+    },
+    "Qwiic_Shield_for_RaspberryPi_1": {
+      "label": "Qwiic Shield for RaspberryPi 1",
+      "baseline_intersection_mm3": 0.0,
+      "revised_intersection_mm3": 0.0,
+      "new_material_intersection_mm3": 0.0
+    }
+  },
+  "note": "Existing Pi/lid reference intersections are inherited. Added arm geometry introduces none. Physical fit and strap pull testing remain necessary.",
+  "saved_file_checks": {
+    "fcstd_reopens": true,
+    "case_tip": "ArmComfortEdges",
+    "original_object_placements_preserved": true,
+    "original_solid_and_sketch_volumes_preserved": true,
+    "step_matches_case_solid": true,
+    "stl_closed": true
+  }
+}

@@ -1,0 +1,7 @@
+# Open PTSD-App-Helper.FCStd, then run this macro to regenerate its arm mount.
+# Dimension defaults are in the adjacent arm_mount.py file.
+import FreeCAD as App
+from pathlib import Path
+macro_dir=Path(__file__).resolve().parent
+source=macro_dir/'arm_mount.py'
+exec(compile(source.read_text(),str(source),'exec'),{'__file__':str(source),'__name__':'__main__'})
