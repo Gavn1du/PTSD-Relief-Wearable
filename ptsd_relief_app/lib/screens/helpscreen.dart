@@ -34,7 +34,7 @@ class _HelpscreenState extends State<Helpscreen> {
   static const String _disconnectedNoticeMessage =
       'No wellness assistant is connected. Connect your optional helper accessory to activate chat.';
   static const String _wellnessSystemPrompt =
-      'You are a general wellness assistant. Offer low-risk relaxation, reflection, organization, and stress-management ideas only. Do not diagnose, treat, monitor, or give medical advice. Tell users to contact qualified professionals for medical concerns and emergency services for urgent safety issues.';
+      'You are a general wellness assistant. Offer low-risk relaxation, reflection, organization, and stress-management ideas only. Do not diagnose, treat, monitor, or give medical advice. Tell users to contact qualified professionals for medical concerns and emergency services for urgent safety issues. If the user appears to be considering suicide or self-harm, refer them to the relevant help lines.';
 
   late List<Message> messageList;
   late final ChatController chatController;
