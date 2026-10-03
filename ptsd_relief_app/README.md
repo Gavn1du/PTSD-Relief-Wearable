@@ -80,8 +80,10 @@ ollama run <model_name> --prompt "What is the capital of France?"
 - gemma3:1b
 - deepseek-r1:1.5b
 - qwen3:1.7b
+- qwen3.5:2b-q4_K_M
+- LiquidAI/lfm2.5-1.2b-instruct:q4_k_m
 
-Selected Model: **qwen3:1.7b**
+Selected Models (see `lib/services/llm.dart`): **qwen3.5:2b-q4_K_M** for chat and images, **LiquidAI/lfm2.5-1.2b-instruct:q4_k_m** for tips
 
 
 # Running Ollama as a server for the flutter app
@@ -96,7 +98,7 @@ Host: <HOST>:11434
 Content-Type: application/json
 
 {
-  "model": "qwen3:1.7b",
+  "model": "qwen3.5:2b-q4_K_M",
   "prompt": "Hello, how are you?",
   "stream": true
 }
@@ -109,7 +111,7 @@ Host: <HOST>:11434
 Content-Type: application/json
 
 {
-  "model": "qwen3:1.7b",
+  "model": "qwen3.5:2b-q4_K_M",
   "messages": [
     {"role":"system","content":"You are a helpful assistant."},
     {"role":"user","content":"What’s the weather today?"}

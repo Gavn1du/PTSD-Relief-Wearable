@@ -11,6 +11,8 @@ import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:chatview/chatview.dart';
 import 'package:ptsd_relief_app/components/data.dart';
 import 'package:ptsd_relief_app/components/theme.dart';
+import 'package:ptsd_relief_app/services/llm.dart';
+import 'package:ptsd_relief_app/services/ollama_endpoint.dart';
 import 'dart:convert';
 import 'package:ptsd_relief_app/size_config.dart';
 import 'package:http/http.dart' as http;
@@ -147,7 +149,7 @@ class _HelpscreenState extends State<Helpscreen> {
     var isOnline = false;
     try {
       final response = await http
-          .get(Uri.parse('$ollamaUrl/api/tags'))
+          .get(Uri.parse('${await OllamaEndpoint.baseUrl()}/api/tags'))
           .timeout(const Duration(seconds: 2));
       isOnline = response.statusCode == 200;
     } catch (error) {
@@ -170,18 +172,16 @@ class _HelpscreenState extends State<Helpscreen> {
   }
 
   // ===== OLLAMA TEST FUNCTIONS =====
-  String ollamaUrl = "http://192.168.1.61:11434";
-  // String ollamaUrl = "http://localhost:11434";
 
   Future<void> sendPrompt(String prompt) async {
-    final uri = Uri.parse('$ollamaUrl/api/generate');
+    final uri = Uri.parse('${await OllamaEndpoint.baseUrl()}/api/generate');
     print('Sending request to: $uri');
     print('Prompt: $prompt');
     final response = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'model': 'qwen3:1.7b',
+        'model': Llm.textModel,
         'prompt': prompt,
         'stream': false,
       }),
@@ -212,14 +212,14 @@ class _HelpscreenState extends State<Helpscreen> {
 
   // stream variant
   Future<void> sendPromptStream(String prompt) async {
-    final uri = Uri.parse('$ollamaUrl/api/generate');
+    final uri = Uri.parse('${await OllamaEndpoint.baseUrl()}/api/generate');
     print('Sending request to: $uri');
     print('Prompt: $prompt');
     final response = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'model': 'qwen3:1.7b',
+        'model': Llm.textModel,
         'prompt': prompt,
         'stream': true,
       }),
@@ -253,10 +253,10 @@ class _HelpscreenState extends State<Helpscreen> {
     print('Sending request to: $uri');
     print('Image data length: ${bytes.length} bytes');
     final response = await http.post(
-      Uri.parse('$ollamaUrl/api/chat'),
+      Uri.parse('${await OllamaEndpoint.baseUrl()}/api/chat'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'model': 'qwen2.5vl:3b',
+        'model': Llm.imageModel,
         'stream': false, // Set to true if you want streaming
         'messages': [
           {
@@ -283,7 +283,7 @@ class _HelpscreenState extends State<Helpscreen> {
     {role: user, content: Analyze the middle}
     ]
      */
-    final uri = Uri.parse('$ollamaUrl/api/chat');
+    final uri = Uri.parse('${await OllamaEndpoint.baseUrl()}/api/chat');
     print('Sending request to: $uri');
     print('Image path: $imagePath');
 
@@ -321,9 +321,13 @@ class _HelpscreenState extends State<Helpscreen> {
 
     // 2) Build the JSON
     final body = jsonEncode({
-      'model': 'qwen2.5vl:3b',
+      'model': Llm.imageModel,
       'stream': false, // Set to true if you want streaming
       'messages': messages,
+      'think': false,
+      // Same model as text chat, so keep the default keep_alive; a shorter
+      // one here would unload the chat model early.
+      ...OllamaEndpoint.requestOptions(maxTokens: 400),
     });
 
     //3) Send the request
@@ -366,7 +370,7 @@ class _HelpscreenState extends State<Helpscreen> {
     bool isImage = false,
   ]) async {
     // Design Note: to test context is understood, the messahes block should have some other older messages
-    final uri = Uri.parse('$ollamaUrl/api/chat');
+    final uri = Uri.parse('${await OllamaEndpoint.baseUrl()}/api/chat');
     print('Sending request to: $uri');
     print('Message: $message');
 
@@ -413,9 +417,12 @@ class _HelpscreenState extends State<Helpscreen> {
           uri,
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
-            'model': 'qwen3:1.7b',
-            // 'model': 'qwen2.5vl:3b',
+            'model': Llm.textModel,
             'messages': messages,
+            // Skip Qwen's hidden reasoning; it multiplies generation time
+            // (and battery use) on the Pi.
+            'think': false,
+            ...OllamaEndpoint.requestOptions(maxTokens: 512),
             // 'messages': [
             //   {
             //     'role': 'system',

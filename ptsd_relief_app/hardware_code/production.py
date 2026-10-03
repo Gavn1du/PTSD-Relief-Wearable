@@ -13,7 +13,8 @@ Expected setup:
 - ADS1115 heart-rate sensor connected on ADS.P3
 - LSM6DSOX accelerometer/gyro
 - Firebase Admin credentials available locally
-- Optional NetworkManager (`nmcli`) if you want BLE provisioning to apply Wi-Fi
+- Optional NetworkManager (`nmcli`) to join Wi-Fi from BLE provisioning and to
+  host the device's own hotspot when no known network is in range
 
 Example:
     python production.py \
@@ -25,13 +26,13 @@ import argparse
 import json
 import math
 import os
+import queue
 import socket
-import subprocess
 import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import firebase_admin
 from firebase_admin import credentials, db
@@ -62,6 +63,23 @@ except Exception as error:  # pragma: no cover - platform dependent
     BLE_IMPORT_ERROR = error
 
 from motion_detection import MotionDetector
+from wifi_network import WifiNetwork, load_hotspot_credentials
+
+# ADS1115 full-scale voltage for each gain setting (matches adafruit_ads1x15).
+ADS_FULL_SCALE_V = {2 / 3: 6.144, 1: 4.096, 2: 2.048, 4: 1.024, 8: 0.512, 16: 0.256}
+
+# Two-letter codes keep BLE notifications within the default 20-byte payload.
+MOTION_EVENT_CODES = {
+    "tremor_up_down": "TU",
+    "tremor_left_right": "TL",
+    "real_tumbling": "TB",
+    "real_tripping": "TR",
+    "real_slipping": "SL",
+    "fake_jumping": "FJ",
+    "fake_trip_recover": "FT",
+    "fake_slip_recover": "FS",
+}
+NETWORK_MODE_CODES = {"hotspot": "A", "client": "C"}
 
 
 def _server_timestamp():
@@ -122,6 +140,13 @@ class ProductionRuntime:
         sensor_root: str,
         axis_map: Dict[str, str],
         skip_wifi_apply: bool,
+        debug_telemetry: bool,
+        network_mode: str,
+        wifi_interface: str,
+        hotspot_config_path: str,
+        hotspot_ssid: str,
+        hotspot_password: str,
+        client_grace_secs: float,
     ) -> None:
         self.database_url = database_url
         self.service_account = str(Path(service_account).expanduser())
@@ -130,18 +155,35 @@ class ProductionRuntime:
         self.device_name = device_name
         self.axis_map = axis_map
         self.skip_wifi_apply = skip_wifi_apply
+        self.debug_telemetry = debug_telemetry
+        self.network_mode = network_mode
+        self.client_grace_secs = client_grace_secs
         self.session_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
         self.stop_event = threading.Event()
         self.sensor_lock = threading.Lock()
         self.config_lock = threading.Lock()
         self.ble_notify_lock = threading.Lock()
+        self.network_lock = threading.Lock()
+        self.wifi_join_lock = threading.Lock()
 
         self._rx_buffer = bytearray()
         self._tx_obj = None
         self._ble_peripheral = None
         self._last_fall_kind = None
         self._last_fall_at_ms = None
+
+        # Firebase writes go through a queue so a slow or missing internet
+        # connection never stalls sensor sampling.
+        self._upload_queue = queue.Queue(maxsize=256)  # type: queue.Queue
+        self._net_mode = "unknown"
+        self._net_address = ""
+        self.wifi = self._init_wifi(
+            wifi_interface,
+            Path(hotspot_config_path).expanduser(),
+            hotspot_ssid,
+            hotspot_password,
+        )
 
         self.firebase_app = self._init_firebase()
 
@@ -165,10 +207,34 @@ class ProductionRuntime:
         self.sox = None
         self.ads = None
         self.heartrate_sensor = None
+        self.ads_full_scale_v = ADS_FULL_SCALE_V[1]
         self.sensor_error = self._init_sensors()
 
     def _log(self, message: str) -> None:
         print(f"[{_utc_now_iso()}] {message}", flush=True)
+
+    def _init_wifi(
+        self,
+        interface: str,
+        hotspot_config_path: Path,
+        hotspot_ssid: str,
+        hotspot_password: str,
+    ) -> Optional[WifiNetwork]:
+        if self.skip_wifi_apply:
+            return None
+        nmcli = shutil_which("nmcli")
+        if not nmcli:
+            self._log("nmcli not available; Wi-Fi and hotspot management disabled.")
+            return None
+
+        ssid, password = load_hotspot_credentials(
+            hotspot_config_path, interface, hotspot_ssid, hotspot_password
+        )
+        self._log(
+            f"Hotspot credentials: SSID '{ssid}' "
+            f"(password stored in {hotspot_config_path})"
+        )
+        return WifiNetwork(nmcli, interface, ssid, password)
 
     def _init_firebase(self):
         cred_path = Path(self.service_account)
@@ -213,6 +279,7 @@ class ProductionRuntime:
             self.ads = ADS.ADS1115(self.i2c)
             self.ads.gain = 1
             self.ads.data_rate = 250
+            self.ads_full_scale_v = ADS_FULL_SCALE_V[self.ads.gain]
             self.heartrate_sensor = AnalogIn(self.ads, ADS.P3)
             return None
         except Exception as error:  # pragma: no cover - hardware dependent
@@ -271,6 +338,18 @@ class ProductionRuntime:
         recorded_at_ms = timestamp_ms or _timestamp_ms()
         self._notify_client(f"FALL:{code}:{recorded_at_ms:x}\n")
 
+    def _notify_network_status(self) -> None:
+        """Tell the app how to reach Ollama: NET:<A|C|N>:<IPv4 as 8 hex digits>."""
+        with self.network_lock:
+            mode, address = self._net_mode, self._net_address
+        if self.wifi is None:
+            return
+        try:
+            packed = socket.inet_aton(address).hex() if address else "00000000"
+        except OSError:
+            packed = "00000000"
+        self._notify_client(f"NET:{NETWORK_MODE_CODES.get(mode, 'N')}:{packed}\n")
+
     def _log_motion_event(self, event_payload: Dict[str, Any]) -> None:
         kind = event_payload["kind"]
         count = event_payload.get("counts")
@@ -289,21 +368,42 @@ class ProductionRuntime:
             parts.append(f"detail={json.dumps(detail, sort_keys=True)}")
         self._log(" | ".join(parts))
 
-    def _safe_set(self, ref, payload, label: str) -> bool:
-        try:
-            ref.set(payload)
+    def _cloud_reachable(self) -> bool:
+        if self.wifi is None:
+            # Wi-Fi isn't managed here, so assume the OS has internet.
             return True
-        except Exception as error:
-            self._log(f"{label} set failed: {error}")
-            return False
+        with self.network_lock:
+            return self._net_mode == "client"
 
-    def _safe_push(self, ref, payload, label: str) -> bool:
+    def _queue_upload(self, op: str, ref, payload, label: str) -> None:
+        # The hotspot has no internet. The phone relays BPM and motion events
+        # (received over BLE) to Firebase instead, so drop device-side writes.
+        if not self._cloud_reachable():
+            return
         try:
-            ref.push(payload)
-            return True
-        except Exception as error:
-            self._log(f"{label} push failed: {error}")
-            return False
+            self._upload_queue.put_nowait((op, ref, payload, label))
+        except queue.Full:
+            self._log(f"Upload queue full; dropped {label}")
+
+    def _safe_set(self, ref, payload, label: str) -> None:
+        self._queue_upload("set", ref, payload, label)
+
+    def _safe_push(self, ref, payload, label: str) -> None:
+        self._queue_upload("push", ref, payload, label)
+
+    def upload_worker(self) -> None:
+        while True:
+            item = self._upload_queue.get()
+            if item is None:
+                return
+            op, ref, payload, label = item
+            try:
+                if op == "set":
+                    ref.set(payload)
+                else:
+                    ref.push(payload)
+            except Exception as error:
+                self._log(f"{label} {op} failed: {error}")
 
     def _update_runtime_status(self, status: str, **extra: Any) -> None:
         payload = {
@@ -361,56 +461,104 @@ class ProductionRuntime:
             "user motion event",
         )
 
-    def _apply_wifi_credentials(self, ssid: str, password: str) -> Tuple[bool, str]:
-        if self.skip_wifi_apply:
-            return False, "Wi-Fi apply skipped by configuration."
+    def _refresh_network_status(self) -> str:
+        if self.wifi is None:
+            return "unmanaged"
 
-        nmcli = shutil_which("nmcli")
-        if not nmcli:
-            return False, "Saved configuration locally; nmcli not available."
+        mode, _, address = self.wifi.status()
+        with self.network_lock:
+            changed = (mode, address) != (self._net_mode, self._net_address)
+            self._net_mode, self._net_address = mode, address
 
-        command = [nmcli, "device", "wifi", "connect", ssid]
-        if password:
-            command.extend(["password", password])
+        if changed:
+            self._log(f"Network is now {mode}{f' at {address}' if address else ''}.")
+            self._notify_network_status()
+            if mode == "client":
+                self._update_runtime_status("online", network="client", ip=address)
+        return mode
 
-        try:
-            subprocess.run(
-                command,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            return True, f"Connected to Wi-Fi network '{ssid}'."
-        except subprocess.CalledProcessError as error:
-            detail = (error.stderr or error.stdout or str(error)).strip()
-            return False, f"Saved config, but failed to connect Wi-Fi: {detail}"
-        except Exception as error:  # pragma: no cover - hardware/system dependent
-            return False, f"Saved config, but Wi-Fi apply failed: {error}"
+    def _start_hotspot(self) -> None:
+        ok, detail = self.wifi.start_hotspot()
+        self._log(detail)
+        self._refresh_network_status()
+
+    def network_worker(self, poll_secs: float = 5.0) -> None:
+        """Fall back to hosting a hotspot when no known Wi-Fi is in range."""
+        if self.network_mode == "hotspot" and self._refresh_network_status() != "hotspot":
+            self._start_hotspot()
+
+        grace_secs = 0.0 if self.network_mode == "hotspot" else self.client_grace_secs
+        last_connected = time.monotonic()
+        while not self.stop_event.wait(poll_secs):
+            if self.wifi_join_lock.locked():
+                # A BLE-provisioned join is in progress; let it finish.
+                last_connected = time.monotonic()
+                continue
+
+            mode = self._refresh_network_status()
+            now = time.monotonic()
+            if mode != "disconnected":
+                last_connected = now
+            elif self.network_mode != "client" and now - last_connected >= grace_secs:
+                self._log("No Wi-Fi connection; starting the device hotspot.")
+                self._start_hotspot()
+                last_connected = now
+
+    def _join_wifi(self, ssid: str, password: str, uid: str) -> None:
+        with self.wifi_join_lock:
+            mode, connection, _ = self.wifi.status()
+            if mode == "client" and connection == ssid:
+                # nmcli names client profiles after their SSID.
+                ok, detail = True, f"Already connected to Wi-Fi network '{ssid}'."
+            else:
+                ok, detail = self.wifi.connect_client(ssid, password)
+            self._log(detail)
+            if not ok and self.network_mode == "auto":
+                self._start_hotspot()
+            self._refresh_network_status()
+
+        self._update_provisioning_status(
+            "ready",
+            ssid=ssid,
+            uid=uid,
+            wifi_applied=ok,
+            detail=detail,
+        )
 
     def _handle_config(self, payload) -> None:
         ssid = str(payload.get("ssid", "")).strip()
         password = str(payload.get("password", "")).strip()
         uid = str(payload.get("uid", "")).strip()
 
-        if not ssid or not uid:
-            missing_fields = []
-            if not ssid:
-                missing_fields.append("ssid")
-            if not uid:
-                missing_fields.append("uid")
-            self._log(
-                "Invalid BLE provisioning payload: missing "
-                + "/".join(missing_fields)
-            )
-            self._notify_client("ERR: missing ssid/uid\n")
+        if not uid:
+            self._log("Invalid BLE provisioning payload: missing uid")
+            self._notify_client("ERR: missing uid\n")
             self._update_provisioning_status(
                 "invalid",
                 ssid=ssid or None,
-                uid=uid or None,
-                detail="Provisioning payload missing ssid or uid.",
+                detail="Provisioning payload missing uid.",
             )
             return
+
+        # A phone that is already on the device hotspot (or sends no SSID) only
+        # needs to link its account; keep the saved home network.
+        link_only = not ssid or (
+            self.wifi is not None and ssid == self.wifi.hotspot_ssid
+        )
+        join_wifi = False
+        if link_only:
+            with self.config_lock:
+                ssid, password = self.provisioning.ssid, self.provisioning.password
+            detail = "Linked account; kept current network settings."
+        elif self.skip_wifi_apply:
+            detail = "Saved Wi-Fi details; Wi-Fi apply skipped by configuration."
+        elif self.wifi is None:
+            detail = "Saved configuration locally; nmcli not available."
+        elif self.network_mode == "hotspot":
+            detail = "Saved Wi-Fi details; device is set to hotspot-only mode."
+        else:
+            join_wifi = True
+            detail = f"Saved. Joining Wi-Fi '{ssid}'."
 
         config = ProvisioningConfig(
             ssid=ssid,
@@ -435,18 +583,27 @@ class ProductionRuntime:
             self._notify_client("ERR: unable to save config\n")
             return
 
-        wifi_applied, detail = self._apply_wifi_credentials(ssid, password)
-        self._update_provisioning_status(
-            "ready",
-            ssid=ssid,
-            uid=uid,
-            wifi_applied=wifi_applied,
-            detail=detail,
-        )
-        self._update_runtime_status("online", last_provisioned_at=config.updated_at)
-
         self._log(f"Received provisioning config for uid={uid} on SSID={ssid}")
+        self._update_runtime_status("online", last_provisioned_at=config.updated_at)
+        if join_wifi:
+            # Joining can take longer than the app waits for a reply and this
+            # runs on the BLE callback, so connect in the background. The app
+            # learns the outcome from the NET: notification.
+            threading.Thread(
+                target=self._join_wifi,
+                args=(ssid, password, uid),
+                daemon=True,
+            ).start()
+        else:
+            self._update_provisioning_status(
+                "ready",
+                ssid=ssid or None,
+                uid=uid,
+                wifi_applied=False,
+                detail=detail,
+            )
         self._notify_client(f"OK: {detail}\n")
+        self._notify_network_status()
 
     def _try_parse_json_from_buffer(self) -> None:
         if len(self._rx_buffer) > 8192:
@@ -477,6 +634,7 @@ class ProductionRuntime:
                 self._last_fall_kind,
                 self._last_fall_at_ms,
             )
+            self._notify_network_status()
 
     def _uart_write_cb(self, value, options) -> None:
         del options
@@ -565,9 +723,11 @@ class ProductionRuntime:
         current_bpm = 0
 
         while not self.stop_event.is_set():
+            # Reading .voltage would trigger a second ADC conversion, so derive
+            # it from the single raw reading.
             with self.sensor_lock:
                 raw_value = int(self.heartrate_sensor.value)
-                voltage = float(self.heartrate_sensor.voltage)
+            voltage = raw_value * self.ads_full_scale_v / 32767
 
             if baseline is None:
                 baseline = raw_value
@@ -591,7 +751,8 @@ class ProductionRuntime:
                 last_beat_time = now_mono
             last_cross_up = is_above
 
-            samples.append({"t": now_ms, "raw": raw_value, "v": voltage})
+            if self.debug_telemetry:
+                samples.append({"t": now_ms, "raw": raw_value, "v": voltage})
 
             if (now_mono - bpm_window_started) >= bpm_window_secs:
                 current_bpm = int(round((beats_in_window / bpm_window_secs) * 60))
@@ -656,31 +817,33 @@ class ProductionRuntime:
             try:
                 with self.sensor_lock:
                     ax, ay, az = self.sox.acceleration
-                    gx, gy, gz = self.sox.gyro
+                    # The gyro only feeds the debug telemetry below.
+                    gx, gy, gz = self.sox.gyro if self.debug_telemetry else (0, 0, 0)
 
                 now_ms = _timestamp_ms()
-                mag = math.sqrt(ax * ax + ay * ay + az * az)
-                live_payload = {
-                    "x": ax,
-                    "y": ay,
-                    "z": az,
-                    "gx": gx,
-                    "gy": gy,
-                    "gz": gz,
-                    "mag": mag,
-                    "ts_client_ms": now_ms,
-                    "ts_server": _server_timestamp(),
-                }
-
-                self._safe_set(self.accel_ref.child("live"), live_payload, "accel live")
-
-                if (now_ms - last_history_ms) >= history_every_ms:
-                    self._safe_push(
-                        self.accel_ref.child("history"),
-                        live_payload,
-                        "accel history",
+                if self.debug_telemetry:
+                    live_payload = {
+                        "x": ax,
+                        "y": ay,
+                        "z": az,
+                        "gx": gx,
+                        "gy": gy,
+                        "gz": gz,
+                        "mag": math.sqrt(ax * ax + ay * ay + az * az),
+                        "ts_client_ms": now_ms,
+                        "ts_server": _server_timestamp(),
+                    }
+                    self._safe_set(
+                        self.accel_ref.child("live"), live_payload, "accel live"
                     )
-                    last_history_ms = now_ms
+
+                    if (now_ms - last_history_ms) >= history_every_ms:
+                        self._safe_push(
+                            self.accel_ref.child("history"),
+                            live_payload,
+                            "accel history",
+                        )
+                        last_history_ms = now_ms
 
                 event = detector.update(now_ms, ax, ay, az, fs_hz)
                 if event:
@@ -704,6 +867,9 @@ class ProductionRuntime:
                     )
                     self._set_user_motion(event["kind"])
                     self._log_motion_event(event_payload)
+                    code = MOTION_EVENT_CODES.get(event["kind"])
+                    if code:
+                        self._notify_client(f"ADM:{code}\n")
                     if event["kind"] in {
                         "real_tumbling",
                         "real_tripping",
@@ -713,7 +879,10 @@ class ProductionRuntime:
                         self._last_fall_at_ms = now_ms
                         self._notify_fall_status(event["kind"], now_ms)
 
-                if (now_ms - last_counts_upload_ms) >= counts_every_ms:
+                if (
+                    self.debug_telemetry
+                    and (now_ms - last_counts_upload_ms) >= counts_every_ms
+                ):
                     self._safe_set(
                         self.accel_counts_ref,
                         {
@@ -731,6 +900,11 @@ class ProductionRuntime:
 
     def start(self) -> None:
         self._log("Starting production runtime.")
+        # Learn the current network first so startup status writes are only
+        # queued when the device can actually reach Firebase.
+        self._refresh_network_status()
+        uploader = threading.Thread(target=self.upload_worker, daemon=True)
+        uploader.start()
         self._update_runtime_status("online", started_at=_utc_now_iso())
         self._update_provisioning_status(
             "ready" if self.provisioning.uid else "awaiting_provisioning",
@@ -753,6 +927,9 @@ class ProductionRuntime:
                     threading.Thread(target=self.accel_worker, daemon=True),
                 ]
             )
+
+        if self.wifi is not None:
+            workers.append(threading.Thread(target=self.network_worker, daemon=True))
 
         if BLE_IMPORT_ERROR is not None:
             degraded_reasons.append(f"BLE unavailable: {BLE_IMPORT_ERROR}")
@@ -779,6 +956,11 @@ class ProductionRuntime:
             for worker in workers:
                 worker.join(timeout=5)
             self._update_runtime_status("offline", stopped_at=_utc_now_iso())
+            try:
+                self._upload_queue.put(None, timeout=1)
+            except queue.Full:
+                pass
+            uploader.join(timeout=10)
             self._log("Stopped.")
 
 
@@ -865,7 +1047,57 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--skip-wifi-apply",
         action="store_true",
         default=os.getenv("VITALLINK_SKIP_WIFI_APPLY", "").lower() in {"1", "true"},
-        help="Only persist BLE provisioning config; do not attempt to join Wi-Fi.",
+        help=(
+            "Only persist BLE provisioning config; do not join Wi-Fi or host "
+            "the hotspot."
+        ),
+    )
+    parser.add_argument(
+        "--network-mode",
+        choices=["auto", "hotspot", "client"],
+        default=os.getenv("VITALLINK_NETWORK_MODE", "auto"),
+        help=(
+            "auto: join the saved Wi-Fi when in range, otherwise host a hotspot. "
+            "hotspot: always host the hotspot. client: never host it."
+        ),
+    )
+    parser.add_argument(
+        "--wifi-interface",
+        default=os.getenv("VITALLINK_WIFI_INTERFACE", "wlan0"),
+        help="Wi-Fi interface used for both client and hotspot modes.",
+    )
+    parser.add_argument(
+        "--hotspot-config-path",
+        default=os.getenv(
+            "VITALLINK_HOTSPOT_CONFIG_PATH",
+            str(hardware_dir / "hotspot_config.json"),
+        ),
+        help="Where the generated hotspot SSID/password are stored.",
+    )
+    parser.add_argument(
+        "--hotspot-ssid",
+        default=os.getenv("VITALLINK_HOTSPOT_SSID", ""),
+        help="Hotspot name. Defaults to VitalLink-<last 4 of the Wi-Fi MAC>.",
+    )
+    parser.add_argument(
+        "--hotspot-password",
+        default=os.getenv("VITALLINK_HOTSPOT_PASSWORD", ""),
+        help="Hotspot WPA2 password (8+ chars). Generated once if omitted.",
+    )
+    parser.add_argument(
+        "--client-grace-secs",
+        type=float,
+        default=float(os.getenv("VITALLINK_CLIENT_GRACE_SECS", "45")),
+        help="In auto mode, seconds without Wi-Fi before starting the hotspot.",
+    )
+    parser.add_argument(
+        "--debug-telemetry",
+        action="store_true",
+        default=os.getenv("VITALLINK_DEBUG_TELEMETRY", "").lower() in {"1", "true"},
+        help=(
+            "Also upload raw heart-rate samples and live accelerometer/gyro data. "
+            "Costs significant Wi-Fi power; the app does not use this data."
+        ),
     )
     return parser
 
@@ -883,6 +1115,13 @@ def main() -> None:
         sensor_root=args.sensor_root,
         axis_map=parse_axis_map(args.axis_map),
         skip_wifi_apply=args.skip_wifi_apply,
+        debug_telemetry=args.debug_telemetry,
+        network_mode=args.network_mode,
+        wifi_interface=args.wifi_interface,
+        hotspot_config_path=args.hotspot_config_path,
+        hotspot_ssid=args.hotspot_ssid,
+        hotspot_password=args.hotspot_password,
+        client_grace_secs=args.client_grace_secs,
     )
     runtime.start()
 

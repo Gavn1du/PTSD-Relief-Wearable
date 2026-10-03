@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:ptsd_relief_app/services/ollama_endpoint.dart';
 
 class FallDetectionEvent {
   const FallDetectionEvent({required this.kind, required this.recordedAt});
@@ -48,6 +51,18 @@ class FallDetectionEvent {
   }
 }
 
+/// Motion event codes sent by the device as `ADM:<code>`.
+const Map<String, String> _motionEventKinds = {
+  'TU': 'tremor_up_down',
+  'TL': 'tremor_left_right',
+  'TB': 'real_tumbling',
+  'TR': 'real_tripping',
+  'SL': 'real_slipping',
+  'FJ': 'fake_jumping',
+  'FT': 'fake_trip_recover',
+  'FS': 'fake_slip_recover',
+};
+
 class BluetoothConnectionService extends ChangeNotifier {
   static const String uartServiceUuid = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
   static const String rxUuid = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E';
@@ -68,6 +83,7 @@ class BluetoothConnectionService extends ChangeNotifier {
   bool _fallMonitoringActive = false;
   bool _isConnecting = false;
   bool _isConnected = false;
+  bool _deviceOnHotspot = false;
 
   int? get liveBpm => _liveBpm;
   DateTime? get liveBpmUpdatedAt => _liveBpmUpdatedAt;
@@ -76,6 +92,9 @@ class BluetoothConnectionService extends ChangeNotifier {
   bool get fallMonitoringActive => _fallMonitoringActive;
   bool get isConnecting => _isConnecting;
   bool get isConnected => _isConnected;
+
+  /// True when the device is hosting its own Wi-Fi hotspot (no internet).
+  bool get deviceOnHotspot => _deviceOnHotspot;
   String? get connectedDeviceId => _device?.remoteId.toString();
   String get connectedDeviceName {
     final name = _device?.platformName.trim() ?? '';
@@ -180,8 +199,22 @@ class BluetoothConnectionService extends ChangeNotifier {
       if (bpm != null) {
         _liveBpm = bpm;
         _liveBpmUpdatedAt = DateTime.now();
+        _relayToFirebase('BPM', bpm);
         notifyListeners();
       }
+      return;
+    }
+
+    if (message.startsWith('ADM:')) {
+      final kind = _motionEventKinds[message.substring(4).trim()];
+      if (kind != null) {
+        _relayToFirebase('ADM', kind);
+      }
+      return;
+    }
+
+    if (message.startsWith('NET:')) {
+      _handleNetworkStatus(message);
       return;
     }
 
@@ -197,6 +230,42 @@ class BluetoothConnectionService extends ChangeNotifier {
     _messages.add(message);
   }
 
+  /// `NET:<A|C|N>:<IPv4 as 8 hex digits>`: A = device hotspot, C = joined a
+  /// Wi-Fi network, N = no network.
+  void _handleNetworkStatus(String message) {
+    final parts = message.split(':');
+    if (parts.length != 3 || parts[2].length != 8) return;
+
+    final packed = int.tryParse(parts[2], radix: 16);
+    if (packed == null) return;
+    final host = [
+      (packed >> 24) & 0xff,
+      (packed >> 16) & 0xff,
+      (packed >> 8) & 0xff,
+      packed & 0xff,
+    ].join('.');
+
+    _deviceOnHotspot = parts[1] == 'A';
+    if (packed != 0) {
+      OllamaEndpoint.setHost(host);
+    }
+    notifyListeners();
+  }
+
+  /// The device can't reach Firebase while it hosts its hotspot, so the phone
+  /// (which still has mobile data) writes the readings it receives over BLE.
+  /// When the device is on home Wi-Fi it writes the same values itself; the
+  /// duplicate write is harmless.
+  Future<void> _relayToFirebase(String field, Object value) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await FirebaseDatabase.instance.ref('users/$uid/$field').set(value);
+    } catch (error) {
+      debugPrint('Failed to relay $field to Firebase: $error');
+    }
+  }
+
   Future<void> disconnect() async {
     final device = _device;
     await _notificationSubscription?.cancel();
@@ -210,6 +279,7 @@ class BluetoothConnectionService extends ChangeNotifier {
     _liveBpm = null;
     _liveBpmUpdatedAt = null;
     _fallMonitoringActive = false;
+    _deviceOnHotspot = false;
     notifyListeners();
 
     if (device != null) {
@@ -229,6 +299,7 @@ class BluetoothConnectionService extends ChangeNotifier {
     _liveBpm = null;
     _liveBpmUpdatedAt = null;
     _fallMonitoringActive = false;
+    _deviceOnHotspot = false;
     notifyListeners();
   }
 

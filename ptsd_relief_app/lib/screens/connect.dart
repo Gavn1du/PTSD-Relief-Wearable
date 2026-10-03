@@ -355,18 +355,17 @@ class _ConnectScreenState extends State<ConnectScreen> {
             : detectedSsid.trim();
     final uid = Auth().user?.uid ?? '';
 
-    if (currentSsid.isEmpty || uid.isEmpty) {
-      final missingValues = [
-        if (currentSsid.isEmpty) 'Wi-Fi network name',
-        if (uid.isEmpty) 'signed-in user',
-      ].join(' and ');
-
+    // An empty SSID is fine: away from home the accessory hosts its own
+    // hotspot, and the phone only needs to link the signed-in account.
+    if (uid.isEmpty) {
       if (!mounted) return;
       setState(() {
-        statusMessage = 'Missing $missingValues before setup can continue.';
+        statusMessage = 'Sign in before setup can continue.';
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Missing $missingValues before setup.')),
+        const SnackBar(
+          content: Text('Sign in before setting up the accessory.'),
+        ),
       );
       return;
     }
@@ -431,7 +430,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
             : theme.colorScheme.secondary;
     final displayedStatus =
         bluetooth.isConnected && !isConnecting
-            ? 'Connected to ${bluetooth.connectedDeviceName}. Receiving optional wellness accessory samples.'
+            ? bluetooth.deviceOnHotspot
+                ? 'Connected to ${bluetooth.connectedDeviceName}. It is hosting its own Wi-Fi network: join the "VitalLink-" network in your Wi-Fi settings to use the AI helper away from home.'
+                : 'Connected to ${bluetooth.connectedDeviceName}. Receiving optional wellness accessory samples.'
             : statusMessage;
 
     return Card(
@@ -582,7 +583,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                       labelText: 'Wi-Fi password',
                       border: OutlineInputBorder(),
                       helperText:
-                          'Used to help the accessory join the same network.',
+                          'Used to help the accessory join your home network. Away from home it hosts its own Wi-Fi instead.',
                     ),
                   ),
                 ],

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:ptsd_relief_app/components/navbar.dart';
 import 'package:ptsd_relief_app/size_config.dart';
+import 'package:ptsd_relief_app/services/llm.dart';
+import 'package:ptsd_relief_app/services/ollama_endpoint.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
@@ -27,7 +29,6 @@ class Recscreen extends StatefulWidget {
 }
 
 class _RecscreenState extends State<Recscreen> {
-  String ollamaUrl = "http://192.168.1.162:11434";
   List<Map<String, dynamic>> messages = [];
   List<String> commonTips = [];
   List<Map<String, dynamic>> savedChats = [];
@@ -176,7 +177,7 @@ class _RecscreenState extends State<Recscreen> {
     // Load message history from SharedPreferences
     await loadMessageHistory();
     // Design Note: to test context is understood, the messahes block should have some other older messages
-    final uri = Uri.parse('$ollamaUrl/api/chat');
+    final uri = Uri.parse('${await OllamaEndpoint.baseUrl()}/api/chat');
     print('Sending tips request to: $uri');
 
     final List<Map<String, dynamic>> formatted =
@@ -223,12 +224,12 @@ class _RecscreenState extends State<Recscreen> {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         // 'model': 'deepseek-r1:1.5b',
-        // 'model': 'qwen2.5vl:3b',
-        'model': 'gemma3:1b',
+        'model': Llm.tipModel,
 
         // 'messages': messages,
         'messages': formatted,
         'stream': false,
+        ...OllamaEndpoint.requestOptions(maxTokens: 300, keepAlive: '5m'),
       }),
     );
 

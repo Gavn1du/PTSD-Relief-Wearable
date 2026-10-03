@@ -127,6 +127,7 @@ The `ptsd_relief_app/hardware_code/` folder contains Python scripts intended for
 - `companion.py`: combined sensor streaming plus BLE setup script for the wearable companion
 - `motion_detection.py`: motion classification logic and event heuristics
 - `accelerometer.py`: early accelerometer experimentation script
+- `production.py` + `wifi_network.py`: the consolidated runtime, including the home Wi-Fi / hotspot fallback ([setup notes](ptsd_relief_app/hardware_code/README.md))
 
 ## Data Flow
 
@@ -151,12 +152,12 @@ Observed uses in the code:
 - Suggesting calming activities when BPM is elevated
 - Generating recurring recommendation/tip content from prior chat history
 
-The in-repo notes and logs mention testing with:
+Models are set in `ptsd_relief_app/lib/services/llm.dart`:
 
-- `gemma3:1b`
-- `deepseek-r1:1.5b`
-- `qwen3:1.7b`
-- `qwen2.5vl:3b` for image-aware interaction
+- `qwen3.5:2b-q4_K_M` for chat and image-aware interaction (one multimodal model, so it stays loaded)
+- `LiquidAI/lfm2.5-1.2b-instruct:q4_k_m` for recommendation/tip generation
+
+Earlier versions used `gemma3:1b`, `qwen3:1.7b`, and `qwen2.5vl:3b`.
 
 ## Running the Project
 
@@ -179,14 +180,14 @@ The app entry point also imports a generated `firebase_options.dart`, so that fi
 
 ### Local LLM server
 
-The Flutter code expects an Ollama-compatible server reachable over the local network. The app source currently contains hardcoded LAN IP addresses for the Ollama host, so those values may need to be updated for your environment.
+The Flutter code expects the Ollama server running on the wearable's Raspberry Pi 5. The Pi reports its address to the app over BLE; outdoors it hosts its own Wi-Fi hotspot at `10.42.0.1`. See [hardware_code/README.md](ptsd_relief_app/hardware_code/README.md) for the networking modes and Pi setup.
 
 Example Ollama workflow mentioned in the app-level notes:
 
 ```bash
 ollama serve
-ollama pull qwen3:1.7b
-ollama pull gemma3:1b
+ollama pull qwen3.5:2b-q4_K_M
+ollama pull LiquidAI/lfm2.5-1.2b-instruct:q4_k_m
 ```
 
 ### Hardware scripts

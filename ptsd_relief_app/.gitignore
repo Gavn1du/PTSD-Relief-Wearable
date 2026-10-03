@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Device secrets written by hardware_code/production.py on the Pi
+/hardware_code/service_account.json
+/hardware_code/device_config.json
+/hardware_code/hotspot_config.json

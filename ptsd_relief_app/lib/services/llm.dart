@@ -3,12 +3,14 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
+import 'package:ptsd_relief_app/services/ollama_endpoint.dart';
 
 class Llm {
-  String ollamaUrl = "http://192.168.1.61:11434";
-  String tipModel = "gemma3:1b";
-  String textModel = "qwen3:1.7b";
-  String imageModel = "qwen2.5vl:3b";
+  // Chat and images share one multimodal model so it stays resident on the
+  // Pi; tips use a smaller, faster text-only model.
+  static const String tipModel = "LiquidAI/lfm2.5-1.2b-instruct:q4_k_m";
+  static const String textModel = "qwen3.5:2b-q4_K_M";
+  static const String imageModel = "qwen3.5:2b-q4_K_M";
 
   Future<Uint8List> convertToPngBytes(File file) async {
     final bytes = await file.readAsBytes();
@@ -24,9 +26,9 @@ class Llm {
 
   Future<Map<String, dynamic>> sendMessage(
     String message, {
-    String model = "qwen3:1.7b",
+    String model = textModel,
   }) async {
-    final uri = Uri.parse('$ollamaUrl/api/chat');
+    final uri = Uri.parse('${await OllamaEndpoint.baseUrl()}/api/chat');
     print('Sending request to: $uri');
     print('Message: $message');
 
@@ -34,8 +36,10 @@ class Llm {
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'model': textModel,
+        'model': model,
         'stream': false,
+        'think': false,
+        ...OllamaEndpoint.requestOptions(maxTokens: 512),
         'messages': [
           {'role': 'user', 'content': message},
         ],
