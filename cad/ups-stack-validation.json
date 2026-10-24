@@ -1,0 +1,107 @@
+{
+  "parameters_mm": {
+    "spacer_length": 40.0,
+    "roof_raise": 34.0,
+    "split_height": 19.0,
+    "spacer_outer_diameter": 5.0,
+    "spacer_bore": 2.7,
+    "lid_seat_clearance": 0.25
+  },
+  "ups_origin_xyz_mm": [
+    40.5,
+    41.5,
+    -24
+  ],
+  "ups_bounds_xyz_mm": [
+    -45.3,
+    21.5,
+    -24.0,
+    40.5,
+    53.600000000000016,
+    36.0
+  ],
+  "mounting_hole_centers_xz_mm": [
+    [
+      -41.0,
+      -20.5
+    ],
+    [
+      -41.0,
+      28.5
+    ],
+    [
+      17.0,
+      -20.5
+    ],
+    [
+      17.0,
+      28.5
+    ]
+  ],
+  "pi_to_holder_vertical_envelope_clearance_mm": 3.54999999999999,
+  "checks": {
+    "ups_vs_case_mm3": 0.0,
+    "ups_vs_lid_mm3": 0,
+    "ups_vs_pi_mm3": 0,
+    "spacers_vs_case_mm3": 0.0,
+    "spacers_vs_lid_mm3": 0,
+    "spacers_vs_pi_mm3": 0.0,
+    "spacers_vs_ups_mm3": 0.0,
+    "case_vs_lid_baseline_mm3": 35.17977504076277,
+    "case_vs_lid_revised_mm3": 0.0,
+    "case_vs_pi_baseline_mm3": 2.955945125187706,
+    "case_vs_pi_revised_mm3": 2.955945125187706,
+    "lower_case_removed_mm3": 0.0,
+    "lower_case_added_mm3": 0.0,
+    "PCB_Component": {
+      "baseline_mm3": 0.0,
+      "revised_mm3": 0.0
+    },
+    "PCB_Component001": {
+      "baseline_mm3": 0.0,
+      "revised_mm3": 0.0
+    },
+    "Body002": {
+      "baseline_mm3": 0.0,
+      "revised_mm3": 0.0
+    },
+    "Qwiic_Shield_for_RaspberryPi_1": {
+      "baseline_mm3": 0.0,
+      "revised_mm3": 0.0
+    }
+  },
+  "exports": {
+    "Case-UPS": {
+      "valid_solid": true,
+      "solids": 1,
+      "closed_mesh": true,
+      "facets": 66166,
+      "bounds_xyz_mm": [
+        -51.7488,
+        -27.19156938201391,
+        -56.61860000000001,
+        46.80000000000001,
+        60.00000000000004,
+        51.85089100000019
+      ]
+    },
+    "Lid-UPS": {
+      "valid_solid": true,
+      "solids": 1,
+      "closed_mesh": true,
+      "facets": 176,
+      "bounds_xyz_mm": [
+        41.0,
+        -5.009416600000001,
+        -50.75,
+        49.75000000000001,
+        59.93046000000001,
+        39.39862799999999
+      ]
+    }
+  },
+  "note": "UPS above Pi as requested. Imported component geometry approximate; physical fit and separate wiring require verification. Existing case/Pi and lid seam intersections reported explicitly.",
+  "saved_project_reopened": true,
+  "exported_stl_reread_closed": true,
+  "rebuild_idempotent": true
+}

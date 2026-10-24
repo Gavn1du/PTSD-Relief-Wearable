@@ -1,0 +1,9 @@
+# Open PTSD-App-Helper.FCStd and run this macro.
+# Edit ups_stack.py PARAMETERS to change spacer length or roof height.
+import FreeCAD as App
+from pathlib import Path
+import sys
+macro_dir=Path(__file__).resolve().parent
+sys.path.insert(0,str(macro_dir))
+source=macro_dir/'ups_stack.py'
+exec(compile(source.read_text(),str(source),'exec'),{'__file__':str(source),'__name__':'__main__'})

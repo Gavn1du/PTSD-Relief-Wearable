@@ -1,5 +1,10 @@
 # Curved upper-arm case
 
+**Current project:** the later [Pi + UPS revision](UPS-STACK.md) expands the
+roof and lid by 34 mm while retaining this arm geometry. Use the `Case-UPS`
+and `Lid-UPS` exports for the current assembly. Dimensions and exports below
+describe the earlier arm-only revision.
+
 `../PTSD-App-Helper.FCStd` is the revised source. The Case body ends in four
 named arm-mount features. The earlier sketches and features, electronics,
 mounts, port openings, and lid geometry remain in the document.
