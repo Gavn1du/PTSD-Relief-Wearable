@@ -1,0 +1,7 @@
+# Open PTSD-App-Helper.FCStd. Edit PARAMETERS in pisugar_case.py, then run.
+from pathlib import Path
+import sys
+macro_dir=Path(__file__).resolve().parent
+sys.path.insert(0,str(macro_dir))
+source=macro_dir/'pisugar_case.py'
+exec(compile(source.read_text(),str(source),'exec'),{'__file__':str(source),'__name__':'__main__'})

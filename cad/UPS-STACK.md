@@ -1,5 +1,9 @@
 # Pi + UPS arm enclosure
 
+**Superseded:** the current project uses the [compact PiSugar layout](PISUGAR-CASE.md).
+This document and the `Case-UPS / Lid-UPS` exports describe the previous
+Waveshare version. Use `Case-PiSugar / Lid-PiSugar` for the current assembly.
+
 The current `../PTSD-App-Helper.FCStd` places the Waveshare 20567 UPS HAT (B)
 **above the Pi's components**, as requested. Its battery holder faces the Pi.
 The Raspberry Pi, existing accessory boards and curved arm mount retain their

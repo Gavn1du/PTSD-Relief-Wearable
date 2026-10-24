@@ -1,0 +1,187 @@
+{
+  "parameters_mm": {
+    "center_floor_thickness": 2.5,
+    "battery_clearance": 2.0,
+    "top_clearance": 1.5,
+    "roof_thickness": 2.0,
+    "lid_seat_clearance": 0.25
+  },
+  "pi_lift_mm": 12.4,
+  "floor_height_mm": -4.5,
+  "roof_inner_height_mm": 31.85,
+  "roof_top_height_mm": 33.85,
+  "center_case_depth_mm": 40.85,
+  "previous_waveshare_center_depth_mm": 67,
+  "depth_reduction_mm": 26.15,
+  "battery_floor_clearance_mm": 2.0,
+  "pi_roof_clearance_mm": 1.5,
+  "mounting_holes_xyz_mm": [
+    [
+      17.0,
+      12.500000000000002,
+      -20.5
+    ],
+    [
+      -41.0,
+      12.500000000000002,
+      -20.5
+    ],
+    [
+      17.0,
+      12.500000000000012,
+      28.5
+    ],
+    [
+      -41.0,
+      12.500000000000012,
+      28.5
+    ]
+  ],
+  "checks": {
+    "RP_004882_DD___Pi_5_Mechanical_Reference_3D_model_Iss1": {
+      "case_mm3": 0.0,
+      "lid_mm3": 0.0
+    },
+    "PCB_Component": {
+      "case_mm3": 0.0,
+      "lid_mm3": 0.0
+    },
+    "PCB_Component001": {
+      "case_mm3": 0.0,
+      "lid_mm3": 0.0
+    },
+    "Body002": {
+      "case_mm3": 0.0,
+      "lid_mm3": 0.0
+    },
+    "Qwiic_Shield_for_RaspberryPi_1": {
+      "case_mm3": 0.0,
+      "lid_mm3": 0.0
+    },
+    "Part__Feature160": {
+      "label": "PiSugar 3 Plus board (vendor)",
+      "case_mm3": 0.0,
+      "lid_mm3": 0.0
+    },
+    "Part__Feature161": {
+      "label": "Battery 5000mAh pouch",
+      "case_mm3": 0.0,
+      "lid_mm3": 0.0
+    },
+    "Part__Feature162": {
+      "label": "Battery magnet disc",
+      "case_mm3": 0.0,
+      "lid_mm3": 0.0
+    },
+    "Part__Feature163": {
+      "label": "Battery lead keep-out",
+      "case_mm3": 0.0,
+      "lid_mm3": 0.0
+    },
+    "modeled_uncompressed_pogo_contacts": [
+      {
+        "volume_mm3": 0.6283185307179584,
+        "bounds_xyz_mm": [
+          11.629999999999999,
+          12.1,
+          -19.72999999999998,
+          12.629999999999999,
+          12.9,
+          -18.72999999999998
+        ]
+      },
+      {
+        "volume_mm3": 0.6283185307179584,
+        "bounds_xyz_mm": [
+          -31.55,
+          12.1,
+          -19.729999999999677,
+          -30.55,
+          12.9,
+          -18.729999999999677
+        ]
+      },
+      {
+        "volume_mm3": 0.6283185307179583,
+        "bounds_xyz_mm": [
+          -34.09,
+          12.1,
+          -19.72999999999968,
+          -33.09,
+          12.9,
+          -18.72999999999968
+        ]
+      },
+      {
+        "volume_mm3": 0.6283185307179584,
+        "bounds_xyz_mm": [
+          -31.55,
+          12.1,
+          -22.269999999999676,
+          -30.55,
+          12.9,
+          -21.269999999999676
+        ]
+      },
+      {
+        "volume_mm3": 0.6283185307179583,
+        "bounds_xyz_mm": [
+          -34.09,
+          12.1,
+          -22.269999999999673,
+          -33.09,
+          12.9,
+          -21.269999999999673
+        ]
+      },
+      {
+        "volume_mm3": 0.6283185307179583,
+        "bounds_xyz_mm": [
+          -36.629999999999995,
+          12.1,
+          -22.26999999999966,
+          -35.629999999999995,
+          12.9,
+          -21.26999999999966
+        ]
+      }
+    ],
+    "case_vs_lid_mm3": 0.0,
+    "original_arm_surface_material_removed_mm3": 0.0
+  },
+  "exports": {
+    "Case-PiSugar": {
+      "valid": true,
+      "solids": 1,
+      "mesh_closed": true,
+      "facets": 65794,
+      "bounds_xyz_mm": [
+        -56.6,
+        -27.19156938201391,
+        -56.61860000000001,
+        46.80000000000001,
+        33.85000000000005,
+        51.85089100000019
+      ]
+    },
+    "Lid-PiSugar": {
+      "valid": true,
+      "solids": 1,
+      "mesh_closed": true,
+      "facets": 160,
+      "bounds_xyz_mm": [
+        41.0,
+        -5.009416600000001,
+        -50.75,
+        49.75000000000001,
+        33.78,
+        39.39862799999999
+      ]
+    }
+  },
+  "note": "Compact fit for modeled hardware; vendor board with approximate battery/lead. Pogo pin contact overlap is intentional uncompressed reference geometry. Additional cooler not modeled.",
+  "saved_project_reopened": true,
+  "exported_stl_reread_closed": true,
+  "rebuild_geometry_identical": true,
+  "rebuild_placements_identical": true
+}
